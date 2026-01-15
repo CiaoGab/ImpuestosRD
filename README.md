@@ -190,6 +190,8 @@ Si eres un courier y quieres aparecer con tarifas verificadas cuando se active e
 
 Este proyecto es de código abierto. Ver archivo LICENSE para más detalles.
 
+The ImpuestosRD name, logo, and branding are not licensed for reuse.
+
 ## Fuentes
 
 Las fuentes oficiales están listadas en `src/data/sources-do.js` y se muestran en la página. Incluyen:
