@@ -1,6 +1,6 @@
 // UI rendering functions
 
-import { formatUSD } from './format.js';
+import { formatUSD, formatDOP } from './format.js';
 
 /**
  * Render calculation results into a DOM element
@@ -12,8 +12,15 @@ import { formatUSD } from './format.js';
  * @param {Array<string>} [options.warnings] - Array of warning messages
  * @param {string} [options.emptyState] - Message to show when no results
  * @param {string} [options.note] - Optional note to show below results
+ * @param {Object} [options.summary] - Optional summary card data
+ * @param {number} [options.summary.paidOnlineUSD]
+ * @param {number} [options.summary.taxTotalUSD]
+ * @param {number} [options.summary.taxDueUSD]
+ * @param {number} [options.summary.fxRate]
+ * @param {number} [options.summary.courierTypicalDOP]
+ * @param {boolean} [options.summary.importFeesPaid]
  */
-export function renderResults(el, { title, lineItems, total, totalLabel, warnings, emptyState, note }) {
+export function renderResults(el, { title, lineItems, total, totalLabel, warnings, emptyState, note, summary }) {
     // Smooth transition
     el.style.opacity = '0.7';
     
@@ -40,6 +47,102 @@ export function renderResults(el, { title, lineItems, total, totalLabel, warning
         titleEl.className = 'text-lg font-semibold text-gray-800 mb-3';
         titleEl.textContent = title;
         container.appendChild(titleEl);
+    }
+
+    // Summary card (optional)
+    if (summary) {
+        const { paidOnlineUSD, taxTotalUSD, taxDueUSD, fxRate, courierTypicalDOP, importFeesPaid } = summary;
+        const hasPaidOnline = typeof paidOnlineUSD === 'number' && paidOnlineUSD > 0;
+        const hasTaxes = typeof taxTotalUSD === 'number' && taxTotalUSD >= 0;
+        const hasFx = typeof fxRate === 'number' && fxRate > 0;
+        const hasCourier = typeof courierTypicalDOP === 'number' && courierTypicalDOP > 0;
+        const dueUSD = typeof taxDueUSD === 'number' ? taxDueUSD : taxTotalUSD;
+
+        if (hasPaidOnline || hasTaxes || hasCourier) {
+            const card = document.createElement('div');
+            card.className = 'p-4 bg-white border border-gray-200 rounded-lg space-y-3';
+
+            const heading = document.createElement('div');
+            heading.className = 'text-sm font-semibold text-gray-700';
+            heading.textContent = 'Resumen';
+            card.appendChild(heading);
+
+            if (hasPaidOnline) {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between';
+                const label = document.createElement('span');
+                label.className = 'text-sm text-gray-600';
+                label.textContent = 'Pagado online (USD)';
+                const value = document.createElement('span');
+                value.className = 'font-semibold text-gray-900';
+                value.textContent = formatUSD(paidOnlineUSD);
+                row.appendChild(label);
+                row.appendChild(value);
+                card.appendChild(row);
+            }
+
+            if (hasTaxes) {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between';
+                const labelWrap = document.createElement('div');
+                const label = document.createElement('span');
+                label.className = 'text-sm text-gray-600';
+                label.textContent = 'Impuestos de importación';
+                labelWrap.appendChild(label);
+                if (importFeesPaid) {
+                    const badge = document.createElement('span');
+                    badge.className = 'ml-2 inline-flex items-center px-2 py-0.5 text-[11px] font-medium text-blue-700 bg-blue-100 rounded-full';
+                    badge.textContent = 'ya pagados';
+                    labelWrap.appendChild(badge);
+                }
+                const value = document.createElement('div');
+                value.className = 'text-sm font-semibold text-gray-900 text-right';
+                value.textContent = formatUSD(taxTotalUSD);
+                if (hasFx) {
+                    const dop = document.createElement('div');
+                    dop.className = 'text-xs text-gray-600';
+                    dop.textContent = formatDOP(taxTotalUSD * fxRate);
+                    value.appendChild(dop);
+                }
+                row.appendChild(labelWrap);
+                row.appendChild(value);
+                card.appendChild(row);
+            }
+
+            if (hasFx) {
+                const row = document.createElement('div');
+                row.className = 'flex items-start justify-between';
+                const label = document.createElement('span');
+                label.className = 'text-sm text-gray-600';
+                label.textContent = 'Total al retirar (RD)';
+                const valueWrap = document.createElement('div');
+                valueWrap.className = 'text-sm font-semibold text-gray-900 text-right';
+                if (hasCourier || (typeof dueUSD === 'number' && dueUSD >= 0)) {
+                    const dueDOP = (typeof dueUSD === 'number' ? dueUSD : 0) * fxRate;
+                    const courierDOP = hasCourier ? courierTypicalDOP : 0;
+                    const totalDOP = dueDOP + courierDOP;
+                    valueWrap.textContent = formatDOP(totalDOP);
+                    if (hasCourier || dueDOP > 0) {
+                        const breakdown = document.createElement('div');
+                        breakdown.className = 'text-[11px] text-gray-600';
+                        breakdown.textContent = `${hasCourier ? `Courier: ${formatDOP(courierDOP)}` : ''}${hasCourier && dueDOP > 0 ? ' · ' : ''}${dueDOP > 0 ? `Impuestos: ${formatDOP(dueDOP)}` : ''}`;
+                        valueWrap.appendChild(breakdown);
+                    }
+                } else {
+                    valueWrap.textContent = '—';
+                }
+                row.appendChild(label);
+                row.appendChild(valueWrap);
+                card.appendChild(row);
+            } else if (hasCourier || (typeof dueUSD === 'number' && dueUSD > 0)) {
+                const helper = document.createElement('div');
+                helper.className = 'text-xs text-gray-600';
+                helper.textContent = 'Ingresa la tasa USD→DOP para ver el total al retirar.';
+                card.appendChild(helper);
+            }
+
+            container.appendChild(card);
+        }
     }
 
     // Warnings

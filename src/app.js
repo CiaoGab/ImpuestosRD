@@ -63,7 +63,8 @@ const state = {
     isInterior: false, // Interior delivery flag
     customRate: null, // Custom rate in USD/lb (null = use market estimate)
     customWeightRule: 'ceil', // 'ceil' | 'exact' | 'min1'
-    importFeesPaid: false // If true, import taxes already paid at checkout
+    importFeesPaid: false, // If true, import taxes already paid at checkout
+    courierTypicalDOP: null
 };
 
 // DOM elements
@@ -93,10 +94,12 @@ const elements = {
     inputImportFeesPaid: document.getElementById('input-import-fees-paid'),
     results: document.getElementById('results'),
     shareBtn: document.getElementById('share-btn'),
+    resetBtn: document.getElementById('reset-btn'),
     shareToast: document.getElementById('share-toast'),
     feedbackLinkPrimary: document.getElementById('feedback-link-primary'),
     supportSection: document.getElementById('support-section'),
     supportBtnPrimary: document.getElementById('support-btn-primary'),
+    footerSupportWrap: document.getElementById('footer-support-wrap'),
     footerSupportLink: document.getElementById('footer-support-link'),
     footerFeedbackLink: document.getElementById('footer-feedback-link'),
     stickyTotalBar: document.getElementById('sticky-total-bar'),
@@ -261,6 +264,13 @@ function buildShareUrl() {
         params.set('override', '1');
     }
     
+    // Always include unit/weight so courier estimate can be restored
+    params.set('unit', state.unit);
+    const weight = getInputValue(elements.inputWeight, INPUT_BOUNDS.weight);
+    if (weight > 0) {
+        params.set('weight', weight.toString());
+    }
+    
     const valueUSD = getInputValue(elements.inputValue);
     if (valueUSD > 0) {
         params.set('value', valueUSD.toString());
@@ -280,13 +290,7 @@ function buildShareUrl() {
         }
     }
     
-    if (state.mode === 'under200') {
-        params.set('unit', state.unit);
-        const weight = getInputValue(elements.inputWeight);
-        if (weight > 0) {
-            params.set('weight', weight.toString());
-        }
-    } else {
+    if (state.mode === 'over200') {
         const shippingUSD = getInputValue(elements.inputShipping);
         const tariffPct = getInputValue(elements.inputTariff);
         if (shippingUSD > 0) {
@@ -477,9 +481,6 @@ function parseQueryParams() {
         const presetValue = TARIFF_PRESETS[tariffCategory];
         if (!tariff) {
             elements.inputTariff.value = presetValue;
-            setTariffCategoryNote('suggested');
-        } else {
-            setTariffCategoryNote();
         }
     }
 
@@ -560,13 +561,6 @@ function calculateAndRender() {
     let result;
     let hasKeyInput = true;
     const warnings = [];
-    const shouldRenderCourier = Boolean(elements.courierResults);
-    const finalize = () => {
-        updateShareButton();
-        if (shouldRenderCourier) {
-            calculateAndRenderCourier();
-        }
-    };
     
     if (state.mode === 'under200') {
         const weight = getInputValue(elements.inputWeight, INPUT_BOUNDS.weight);
@@ -601,7 +595,7 @@ function calculateAndRender() {
                 renderResults(elements.results, { 
                     emptyState: 'Error al calcular. Por favor verifica los valores ingresados.' 
                 });
-                finalize();
+                updateShareButton();
                 return;
             }
         }
@@ -641,13 +635,16 @@ function calculateAndRender() {
                 renderResults(elements.results, { 
                     emptyState: 'Error al calcular. Por favor verifica los valores ingresados.' 
                 });
-                finalize();
+                updateShareButton();
                 return;
             }
         }
     }
     
     // Render results
+    // Always recalc courier once per change
+    const courierTypicalDOP = elements.courierResults ? calculateAndRenderCourier() : null;
+    
     if (!hasKeyInput) {
         if (state.mode === 'under200') {
             elements.results.textContent = '';
@@ -668,7 +665,7 @@ function calculateAndRender() {
         } else {
             renderResults(elements.results, { emptyState: 'Por favor ingresa el valor del producto para calcular los impuestos.' });
         }
-        finalize();
+        updateShareButton();
         return;
     }
     
@@ -676,10 +673,17 @@ function calculateAndRender() {
         renderResults(elements.results, { 
             emptyState: 'Los resultados aparecerán aquí' 
         });
-        finalize();
+        updateShareButton();
         return;
     }
     
+    const storeShippingUSD = elements.inputStoreShipping ? getInputValue(elements.inputStoreShipping, INPUT_BOUNDS.storeShipping) : 0;
+    const checkoutTaxUSD = elements.inputCheckoutTax ? getInputValue(elements.inputCheckoutTax, INPUT_BOUNDS.checkoutTax) : 0;
+    const paidOnlineUSD = valueUSD + storeShippingUSD + checkoutTaxUSD;
+    const taxTotalUSD = result.taxTotalUSD;
+    const taxDueUSD = result.taxDueUSD ?? taxTotalUSD;
+    const fxRate = state.fxRate;
+
     // Build line items for summary card
     const lineItems = [];
     if (state.mode === 'under200') {
@@ -709,22 +713,31 @@ function calculateAndRender() {
         total: result.grandTotalUSD,
         totalLabel: 'Total (valor + impuestos)',
         warnings: warnings.length > 0 ? warnings : undefined,
-        note: importFeesNote
+        note: importFeesNote,
+        summary: {
+            paidOnlineUSD,
+            taxTotalUSD,
+            taxDueUSD,
+            fxRate,
+            courierTypicalDOP: courierTypicalDOP ?? state.courierTypicalDOP,
+            importFeesPaid: state.importFeesPaid
+        }
     });
     
-    finalize();
+    updateShareButton();
 }
 
 // Calculate and render courier fees (market estimate)
 function calculateAndRenderCourier() {
     if (!elements.courierResults) {
-        return;
+        return null;
     }
     
     const weight = getInputValue(elements.inputWeight, INPUT_BOUNDS.weight);
     const valueUSD = getInputValue(elements.inputValue, INPUT_BOUNDS.value);
     const fxRate = getInputValue(elements.inputFxRate, { min: 0, max: 1000 });
     const importFeesPaid = state.importFeesPaid;
+    let typicalDOPValue = null;
     
     // Convert weight to pounds
     const weightLb = toLb(weight, state.unit);
@@ -766,6 +779,7 @@ function calculateAndRenderCourier() {
     
     // Check if we have required inputs
     if (weightLb <= 0) {
+        state.courierTypicalDOP = null;
         elements.courierResults.classList.remove('hidden');
         elements.courierResults.textContent = '';
         const empty = document.createElement('p');
@@ -773,7 +787,7 @@ function calculateAndRenderCourier() {
         empty.textContent = 'Ingresa el peso para estimar los gastos de courier.';
         elements.courierResults.appendChild(empty);
         updateStickyBar(null);
-        return;
+        return null;
     }
     
     // Check if custom rate is provided
@@ -784,6 +798,8 @@ function calculateAndRenderCourier() {
         const billedWeight = getCustomBilledWeight(weightLb, customRule);
         const customTotalUSD = billedWeight * customRate;
         const customTotalDOP = fxRate > 0 ? customTotalUSD * fxRate : 0;
+        typicalDOPValue = customTotalDOP;
+        state.courierTypicalDOP = typicalDOPValue;
         
         renderMarketEstimateResults({
             typicalDOP: customTotalDOP,
@@ -792,7 +808,7 @@ function calculateAndRenderCourier() {
             isCustom: true,
             billedWeight
         }, taxResult, fxRate, importFeesPaid);
-        return;
+        return typicalDOPValue;
     }
     
     // Calculate market estimate: loop through all non-manual couriers
@@ -818,9 +834,10 @@ function calculateAndRenderCourier() {
     }
     
     if (courierTotalsUSD.length === 0) {
+        state.courierTypicalDOP = null;
         elements.courierResults.classList.add('hidden');
         updateStickyBar(null);
-        return;
+        return null;
     }
     
     // Calculate min, median (typical), max
@@ -845,6 +862,8 @@ function calculateAndRenderCourier() {
     const minDOP = fxRate > 0 ? minUSD * fxRate : 0;
     const typicalDOP = fxRate > 0 ? medianUSD * fxRate : 0;
     const maxDOP = fxRate > 0 ? maxUSD * fxRate : 0;
+    typicalDOPValue = typicalDOP;
+    state.courierTypicalDOP = typicalDOPValue;
     
     // Render market estimate results
     renderMarketEstimateResults({
@@ -853,6 +872,7 @@ function calculateAndRenderCourier() {
         maxDOP,
         isCustom: false
     }, taxResult, fxRate, state.importFeesPaid);
+    return typicalDOPValue;
 }
 
 function updateStickyBar(localTotalDOP) {
@@ -951,6 +971,22 @@ function renderMarketEstimateResults({ typicalDOP, minDOP, maxDOP, isCustom, bil
     scopeLine.className = 'text-xs text-gray-600';
     scopeLine.textContent = 'Incluye flete estimado por libra. Cargos adicionales pueden variar.';
     estimateDiv.appendChild(scopeLine);
+
+    const includeList = document.createElement('div');
+    includeList.className = 'mt-2 text-xs text-gray-700 space-y-1';
+    const includeLine = document.createElement('div');
+    includeLine.textContent = '✅ Incluye: flete estimado por libra.';
+    const excludeLine = document.createElement('div');
+    excludeLine.textContent = '❌ No incluye: peso volumétrico, manejo especial, seguros, airport fee.';
+    includeList.appendChild(includeLine);
+    includeList.appendChild(excludeLine);
+    if (state.isInterior) {
+        const interiorLine = document.createElement('div');
+        interiorLine.className = 'text-yellow-700';
+        interiorLine.textContent = 'Interior puede aumentar el costo según zona.';
+        includeList.appendChild(interiorLine);
+    }
+    estimateDiv.appendChild(includeList);
     
     // Range (only show if not custom and there's variation)
     if (!isCustom && minDOP !== maxDOP && fxRate > 0) {
@@ -1312,9 +1348,70 @@ if (elements.stickyShareBtn) {
     });
 }
 
+function resetCalculator() {
+    // Reset state
+    state.manualModeOverride = false;
+    state.mode = 'under200';
+    state.unit = 'lb';
+    state.fxRate = 58.50;
+    state.isInterior = false;
+    state.customRate = null;
+    state.customWeightRule = 'ceil';
+    state.importFeesPaid = false;
+    state.courierTypicalDOP = null;
+
+    // Reset inputs
+    elements.inputValue.value = '';
+    if (elements.inputStoreShipping) elements.inputStoreShipping.value = '';
+    if (elements.inputCheckoutTax) elements.inputCheckoutTax.value = '';
+    elements.inputWeight.value = '';
+    elements.inputShipping.value = '';
+    elements.inputTariff.value = '';
+    if (elements.tariffCategory) elements.tariffCategory.value = '';
+    setTariffCategoryNote();
+    if (elements.inputSelectivo) elements.inputSelectivo.value = '';
+    if (elements.inputFxRate) elements.inputFxRate.value = state.fxRate;
+    if (elements.inputInterior) {
+        elements.inputInterior.checked = false;
+        if (elements.interiorNote) elements.interiorNote.classList.add('hidden');
+    }
+    if (elements.inputCustomRate) elements.inputCustomRate.value = '';
+    if (elements.inputCustomWeightRule) elements.inputCustomWeightRule.value = state.customWeightRule;
+    if (elements.inputImportFeesPaid) elements.inputImportFeesPaid.checked = false;
+
+    // Reset summaries and UI
+    if (elements.paidOnlineSummary) elements.paidOnlineSummary.classList.add('hidden');
+    updateStickyBar(null);
+    if (elements.courierResults) {
+        elements.courierResults.classList.add('hidden');
+        elements.courierResults.textContent = '';
+    }
+    if (elements.results) {
+        elements.results.textContent = '';
+        const p = document.createElement('p');
+        p.className = 'text-gray-500 text-center';
+        p.textContent = 'Los resultados aparecerán aquí';
+        elements.results.appendChild(p);
+    }
+
+    // Clear URL params
+    if (window.history && window.history.replaceState) {
+        window.history.replaceState({}, '', `${window.location.origin}${window.location.pathname}`);
+    }
+
+    render();
+}
+
+if (elements.resetBtn) {
+    elements.resetBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        resetCalculator();
+    });
+}
+
 // Setup support links with Stripe Payment Link URL
 function setupSupportLinks() {
-    const footerSupportContainer = elements.footerSupportLink ? elements.footerSupportLink.parentElement : null;
+    const footerSupportContainer = elements.footerSupportWrap || null;
 
     if (SHOW_SUPPORT) {
         if (elements.supportSection) {
@@ -1327,6 +1424,9 @@ function setupSupportLinks() {
             elements.supportBtnPrimary.href = STRIPE_PAYMENT_LINK_URL;
             elements.supportBtnPrimary.removeAttribute('aria-hidden');
             elements.supportBtnPrimary.removeAttribute('tabindex');
+        }
+        if (footerSupportContainer) {
+            footerSupportContainer.classList.remove('hidden');
         }
         if (elements.footerSupportLink) {
             elements.footerSupportLink.href = STRIPE_PAYMENT_LINK_URL;
