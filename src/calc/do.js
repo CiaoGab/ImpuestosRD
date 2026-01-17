@@ -58,31 +58,40 @@ export function calcUnder200({ valueUSD, weight, unit }) {
  * @param {number} params.valueUSD - Product value in USD
  * @param {number} params.shippingUSD - Shipping cost in USD
  * @param {number} params.tariffPct - Tariff percentage
+ * @param {number} params.selectivoPct - Selectivo percentage
  * @returns {Object} Calculation result with baseUSD, taxTotalUSD, grandTotalUSD, taxLineItems
  */
-export function calcOver200({ valueUSD, shippingUSD, tariffPct }) {
+export function calcOver200({ valueUSD, shippingUSD, tariffPct, selectivoPct = 0 }) {
     // Clamp negative values to 0
     const value = Math.max(0, valueUSD || 0);
     const shipping = Math.max(0, shippingUSD || 0);
     const tariffPercent = Math.max(0, Math.min(100, tariffPct || 0)); // Clamp between 0-100
+    const selectivoPercent = Math.max(0, Math.min(100, selectivoPct || 0)); // Clamp between 0-100
     
     const cif = value + shipping;
     const tariff = cif * (tariffPercent / 100);
-    const itbis = (cif + tariff) * 0.18;
+    const selectivo = cif * (selectivoPercent / 100);
+    const itbis = (cif + tariff + selectivo) * 0.18;
     const taxLineItems = [
         {
             label: `Arancel (${tariffPercent}%)`,
             valueUSD: tariff
-        },
-        {
-            label: 'ITBIS (18%)',
-            valueUSD: itbis,
-            note: 'Sobre CIF + Arancel'
         }
     ];
+    if (selectivo > 0) {
+        taxLineItems.push({
+            label: `Selectivo (${selectivoPercent}%)`,
+            valueUSD: selectivo
+        });
+    }
+    taxLineItems.push({
+        label: 'ITBIS (18%)',
+        valueUSD: itbis,
+        note: selectivo > 0 ? 'Sobre CIF + Arancel + Selectivo' : 'Sobre CIF + Arancel'
+    });
     
     const baseUSD = value;
-    const taxTotalUSD = tariff + itbis;
+    const taxTotalUSD = tariff + selectivo + itbis;
     const grandTotalUSD = value + shipping + taxTotalUSD;
     
     return {

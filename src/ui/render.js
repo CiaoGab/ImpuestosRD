@@ -11,6 +11,7 @@ import { formatUSD } from './format.js';
  * @param {number} [options.total] - Total amount to emphasize
  * @param {Array<string>} [options.warnings] - Array of warning messages
  * @param {string} [options.emptyState] - Message to show when no results
+ * @param {string} [options.note] - Optional note to show below results
  */
 // Escape HTML to prevent XSS (simple version for numeric/known-safe content)
 function escapeHtml(text) {
@@ -20,7 +21,7 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-export function renderResults(el, { title, lineItems, total, totalLabel, warnings, emptyState }) {
+export function renderResults(el, { title, lineItems, total, totalLabel, warnings, emptyState, note }) {
     // Smooth transition
     el.style.opacity = '0.7';
     
@@ -114,6 +115,13 @@ export function renderResults(el, { title, lineItems, total, totalLabel, warning
         totalDiv.appendChild(totalLabelEl);
         totalDiv.appendChild(totalValue);
         container.appendChild(totalDiv);
+    }
+
+    if (note) {
+        const noteDiv = document.createElement('div');
+        noteDiv.className = 'text-xs text-gray-500 mt-3';
+        noteDiv.textContent = note;
+        container.appendChild(noteDiv);
     }
 
     el.appendChild(container);

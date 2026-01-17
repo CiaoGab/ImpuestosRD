@@ -11,8 +11,10 @@ import { COURIERS_DO } from './data/couriers-do.js';
 // STRIPE_PAYMENT_LINK_URL: Set your Stripe Payment Link here.
 // Remember to configure the Stripe Payment Link success redirect URL to /gracias.html
 const STRIPE_PAYMENT_LINK_URL = '<PUT_STRIPE_PAYMENT_LINK_HERE>';
+const SHOW_SUPPORT = false; // Feature flag for support section
 const SHOW_COURIERS = false; // Feature flag for couriers section
 const SHOW_COURIER_BREAKDOWN = false; // Future flag to re-enable courier breakdown UI
+const DEBUG_ENABLED = new URLSearchParams(window.location.search).get('debug') === '1';
 
 // Courier data
 const COURIER_CARDS = [
@@ -53,7 +55,8 @@ const state = {
     fxRate: 58.50, // Default USD to DOP rate
     isInterior: false, // Interior delivery flag
     customRate: null, // Custom rate in USD/lb (null = use market estimate)
-    customWeightRule: 'ceil' // 'ceil' | 'exact' | 'min1'
+    customWeightRule: 'ceil', // 'ceil' | 'exact' | 'min1'
+    importFeesPaid: false // If true, import taxes already paid at checkout
 };
 
 // DOM elements
@@ -71,6 +74,7 @@ const elements = {
     weightSummary: document.getElementById('weight-summary'),
     shippingContainer: document.getElementById('shipping-container'),
     tariffContainer: document.getElementById('tariff-container'),
+    tariffPreset: document.getElementById('tariff-preset'),
     inputValue: document.getElementById('input-value'),
     inputStoreShipping: document.getElementById('input-store-shipping'),
     inputCheckoutTax: document.getElementById('input-checkout-tax'),
@@ -79,8 +83,11 @@ const elements = {
     inputWeight: document.getElementById('input-weight'),
     inputShipping: document.getElementById('input-shipping'),
     inputTariff: document.getElementById('input-tariff'),
+    inputSelectivo: document.getElementById('input-selectivo'),
+    inputImportFeesPaid: document.getElementById('input-import-fees-paid'),
     results: document.getElementById('results'),
     shareBtn: document.getElementById('share-btn'),
+    supportSection: document.getElementById('support-section'),
     supportBtnPrimary: document.getElementById('support-btn-primary'),
     footerSupportLink: document.getElementById('footer-support-link'),
     couriersSection: document.getElementById('couriers-section'),
@@ -102,7 +109,8 @@ const INPUT_BOUNDS = {
     checkoutTax: { min: 0, max: 10000 },
     weight: { min: 0, max: 500 },
     shipping: { min: 0, max: 10000 },
-    tariff: { min: 0, max: 50 }
+    tariff: { min: 0, max: 50 },
+    selectivo: { min: 0, max: 50 }
 };
 
 // Get input value as number (treat empty as 0, clamp to bounds)
@@ -227,6 +235,15 @@ function buildShareUrl() {
         }
         if (tariffPct > 0) {
             params.set('tariff', tariffPct.toString());
+        }
+        const selectivoPct = elements.inputSelectivo
+            ? getInputValue(elements.inputSelectivo, INPUT_BOUNDS.selectivo)
+            : 0;
+        if (selectivoPct > 0) {
+            params.set('selectivo', selectivoPct.toString());
+        }
+        if (state.importFeesPaid) {
+            params.set('importFeesPaid', '1');
         }
     }
     
@@ -383,6 +400,25 @@ function parseQueryParams() {
         }
     }
 
+    // Parse selectivo (sanitize - numbers only, clamp to bounds)
+    const selectivo = params.get('selectivo');
+    if (selectivo && elements.inputSelectivo) {
+        const numSelectivo = parseFloat(selectivo);
+        if (!isNaN(numSelectivo) && isFinite(numSelectivo)) {
+            const clamped = Math.max(INPUT_BOUNDS.selectivo.min, Math.min(INPUT_BOUNDS.selectivo.max, numSelectivo));
+            if (clamped > 0) {
+                elements.inputSelectivo.value = clamped;
+            }
+        }
+    }
+
+    // Parse import fees paid flag
+    const importFeesPaid = params.get('importFeesPaid');
+    if (importFeesPaid === '1' && elements.inputImportFeesPaid) {
+        state.importFeesPaid = true;
+        elements.inputImportFeesPaid.checked = true;
+    }
+
     // Parse FX rate
     const fxRate = params.get('fx');
     if (fxRate && elements.inputFxRate) {
@@ -473,6 +509,9 @@ function calculateAndRender() {
     } else {
         const shippingUSD = getInputValue(elements.inputShipping, INPUT_BOUNDS.shipping);
         const tariffPct = getInputValue(elements.inputTariff, INPUT_BOUNDS.tariff);
+        const selectivoPct = elements.inputSelectivo
+            ? getInputValue(elements.inputSelectivo, INPUT_BOUNDS.selectivo)
+            : 0;
         
         // Check if key input (value) is missing
         if (elements.inputValue.value.trim() === '') {
@@ -489,7 +528,8 @@ function calculateAndRender() {
                 result = calcOver200({
                     valueUSD,
                     shippingUSD,
-                    tariffPct
+                    tariffPct,
+                    selectivoPct
                 });
             } catch (err) {
                 console.error('Calculation error:', err);
@@ -540,11 +580,16 @@ function calculateAndRender() {
     }
     
     // Render with results
+    const importFeesNote = state.mode === 'over200' && state.importFeesPaid
+        ? 'Nota: marcaste Import Fees, por eso los impuestos no se suman al total local.'
+        : undefined;
+
     renderResults(elements.results, {
         lineItems,
         total: result.grandTotalUSD,
         totalLabel: 'Total (valor + impuestos)',
-        warnings: warnings.length > 0 ? warnings : undefined
+        warnings: warnings.length > 0 ? warnings : undefined,
+        note: importFeesNote
     });
     
     // Update share button state
@@ -565,6 +610,7 @@ function calculateAndRenderCourier() {
     const weight = getInputValue(elements.inputWeight, INPUT_BOUNDS.weight);
     const valueUSD = getInputValue(elements.inputValue, INPUT_BOUNDS.value);
     const fxRate = getInputValue(elements.inputFxRate, { min: 0, max: 1000 });
+    const importFeesPaid = state.importFeesPaid;
     
     // Convert weight to pounds
     const weightLb = toLb(weight, state.unit);
@@ -587,11 +633,15 @@ function calculateAndRenderCourier() {
         if (valueUSD > 0) {
             const shippingUSD = getInputValue(elements.inputShipping, INPUT_BOUNDS.shipping);
             const tariffPct = getInputValue(elements.inputTariff, INPUT_BOUNDS.tariff);
+            const selectivoPct = elements.inputSelectivo
+                ? getInputValue(elements.inputSelectivo, INPUT_BOUNDS.selectivo)
+                : 0;
             try {
                 taxResult = calcOver200({
                     valueUSD,
                     shippingUSD,
-                    tariffPct
+                    tariffPct,
+                    selectivoPct
                 });
             } catch (err) {
                 console.error('Tax calculation error:', err);
@@ -685,11 +735,11 @@ function calculateAndRenderCourier() {
         minDOP,
         maxDOP,
         isCustom: false
-    }, taxResult, fxRate);
+    }, taxResult, fxRate, state.importFeesPaid);
 }
 
 // Render market estimate results
-function renderMarketEstimateResults({ typicalDOP, minDOP, maxDOP, isCustom, billedWeight }, taxResult, fxRate) {
+function renderMarketEstimateResults({ typicalDOP, minDOP, maxDOP, isCustom, billedWeight }, taxResult, fxRate, importFeesPaid) {
     if (!elements.courierResults) return;
     
     elements.courierResults.classList.remove('hidden');
@@ -791,8 +841,9 @@ function renderMarketEstimateResults({ typicalDOP, minDOP, maxDOP, isCustom, bil
     
     // Local total (DOP) - taxes + courier fees
     if (fxRate > 0 && (taxResult || typicalDOP > 0)) {
-        const taxDOP = taxResult ? taxResult.taxTotalUSD * fxRate : 0;
-        const localTotalDOP = taxDOP + typicalDOP;
+        const taxUSD = taxResult ? taxResult.taxTotalUSD : 0;
+        const effectiveTaxUSDForLocal = importFeesPaid ? 0 : taxUSD;
+        const localTotalDOP = effectiveTaxUSDForLocal * fxRate + typicalDOP;
         
         if (localTotalDOP > 0) {
             const localTotalDiv = document.createElement('div');
@@ -845,6 +896,11 @@ function render() {
     
     // Update debug mode indicator
     if (elements.modeDebug) {
+        if (!DEBUG_ENABLED) {
+            elements.modeDebug.classList.add('hidden');
+            return;
+        }
+        elements.modeDebug.classList.remove('hidden');
         const overrideStatus = state.manualModeOverride ? 'override' : 'auto';
         elements.modeDebug.textContent = `Modo actual: ${state.mode} (${overrideStatus}) | FOB: $${valueUSD.toFixed(2)}`;
     }
@@ -1026,6 +1082,39 @@ elements.inputTariff.addEventListener('change', () => {
     calculateAndRender();
 });
 
+if (elements.tariffPreset) {
+    elements.tariffPreset.addEventListener('change', () => {
+        const selectedValue = elements.tariffPreset.value;
+        if (selectedValue === '') {
+            return;
+        }
+        elements.inputTariff.value = selectedValue;
+        validateInput(elements.inputTariff, INPUT_BOUNDS.tariff);
+        calculateAndRender();
+    });
+}
+
+if (elements.inputSelectivo) {
+    elements.inputSelectivo.addEventListener('input', () => {
+        validateInput(elements.inputSelectivo, INPUT_BOUNDS.selectivo);
+        debouncedCalculate();
+    });
+    elements.inputSelectivo.addEventListener('change', () => {
+        validateInput(elements.inputSelectivo, INPUT_BOUNDS.selectivo);
+        calculateAndRender();
+    });
+}
+
+if (elements.inputImportFeesPaid) {
+    elements.inputImportFeesPaid.addEventListener('change', (e) => {
+        state.importFeesPaid = e.target.checked;
+        calculateAndRender();
+        if (elements.courierResults) {
+            calculateAndRenderCourier();
+        }
+    });
+}
+
 // Share button event listener
 elements.shareBtn.addEventListener('click', (e) => {
     e.preventDefault();
@@ -1036,14 +1125,47 @@ elements.shareBtn.addEventListener('click', (e) => {
 
 // Setup support links with Stripe Payment Link URL
 function setupSupportLinks() {
-    // Set href for primary support button
-    if (elements.supportBtnPrimary) {
-        elements.supportBtnPrimary.href = STRIPE_PAYMENT_LINK_URL;
+    const footerSupportContainer = elements.footerSupportLink ? elements.footerSupportLink.parentElement : null;
+
+    if (SHOW_SUPPORT) {
+        if (elements.supportSection) {
+            elements.supportSection.classList.remove('hidden');
+        }
+        if (footerSupportContainer) {
+            footerSupportContainer.classList.remove('hidden');
+        }
+        if (elements.supportBtnPrimary) {
+            elements.supportBtnPrimary.href = STRIPE_PAYMENT_LINK_URL;
+            elements.supportBtnPrimary.removeAttribute('aria-hidden');
+            elements.supportBtnPrimary.removeAttribute('tabindex');
+        }
+        if (elements.footerSupportLink) {
+            elements.footerSupportLink.href = STRIPE_PAYMENT_LINK_URL;
+            elements.footerSupportLink.removeAttribute('aria-hidden');
+            elements.footerSupportLink.removeAttribute('tabindex');
+        }
+        return;
     }
-    
-    // Set href for footer support link
+
+    if (elements.supportSection) {
+        elements.supportSection.classList.add('hidden');
+    }
+    if (footerSupportContainer) {
+        footerSupportContainer.classList.add('hidden');
+    }
+    if (elements.supportBtnPrimary) {
+        elements.supportBtnPrimary.removeAttribute('href');
+        elements.supportBtnPrimary.removeAttribute('target');
+        elements.supportBtnPrimary.removeAttribute('rel');
+        elements.supportBtnPrimary.setAttribute('aria-hidden', 'true');
+        elements.supportBtnPrimary.setAttribute('tabindex', '-1');
+    }
     if (elements.footerSupportLink) {
-        elements.footerSupportLink.href = STRIPE_PAYMENT_LINK_URL;
+        elements.footerSupportLink.removeAttribute('href');
+        elements.footerSupportLink.removeAttribute('target');
+        elements.footerSupportLink.removeAttribute('rel');
+        elements.footerSupportLink.setAttribute('aria-hidden', 'true');
+        elements.footerSupportLink.setAttribute('tabindex', '-1');
     }
 }
 
