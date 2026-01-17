@@ -1,5 +1,3 @@
-console.log("ImpuestosRD loaded");
-
 import { calcUnder200, calcOver200 } from './calc/do.js';
 import { calcCourierFees, toLb } from './calc/courier-do.js';
 import { formatUSD, formatDOP } from './ui/format.js';
@@ -48,6 +46,14 @@ const COURIER_CARDS = [
     }
 ];
 
+const TARIFF_PRESETS = {
+    electronics: 0,
+    clothing: 20,
+    supplements: 10,
+    books: 0,
+    other: 10
+};
+
 // State management
 const state = {
     mode: 'under200', // 'under200' or 'over200' - auto-determined by value, can be overridden
@@ -71,8 +77,6 @@ const elements = {
     unitLb: document.getElementById('unit-lb'),
     unitKg: document.getElementById('unit-kg'),
     weightContainer: document.getElementById('weight-container'),
-    weightDetails: document.getElementById('weight-details'),
-    weightSummary: document.getElementById('weight-summary'),
     shippingContainer: document.getElementById('shipping-container'),
     tariffContainer: document.getElementById('tariff-container'),
     tariffCategory: document.getElementById('input-tariff-category'),
@@ -192,10 +196,11 @@ function getCustomBilledWeight(weightLb, rule) {
 // Check if share button should be enabled
 function shouldEnableShare() {
     if (state.mode === 'under200') {
-        const weight = getInputValue(elements.inputWeight);
-        return weight > 0;
+        const valueUSD = getInputValue(elements.inputValue, INPUT_BOUNDS.value);
+        const weight = getInputValue(elements.inputWeight, INPUT_BOUNDS.weight);
+        return valueUSD > 0 && weight > 0;
     } else {
-        const valueUSD = getInputValue(elements.inputValue);
+        const valueUSD = getInputValue(elements.inputValue, INPUT_BOUNDS.value);
         return valueUSD > 0;
     }
 }
@@ -234,7 +239,7 @@ function setTariffCategoryNote(state) {
     if (!elements.tariffCategoryNote) return;
 
     if (state === 'suggested') {
-        elements.tariffCategoryNote.textContent = 'Sugerido por categoría (editable)';
+        elements.tariffCategoryNote.textContent = 'Sugerido por categoria (editable)';
         elements.tariffCategoryNote.classList.remove('hidden');
         return;
     }
@@ -251,7 +256,10 @@ function setTariffCategoryNote(state) {
 function buildShareUrl() {
     const params = new URLSearchParams();
     
-    params.set('mode', state.mode);
+    if (state.manualModeOverride) {
+        params.set('mode', state.mode);
+        params.set('override', '1');
+    }
     
     const valueUSD = getInputValue(elements.inputValue);
     if (valueUSD > 0) {
@@ -288,10 +296,9 @@ function buildShareUrl() {
             params.set('tariff', tariffPct.toString());
         }
         if (elements.tariffCategory && elements.tariffCategory.value !== '') {
-            const categoryValue = parseFloat(elements.tariffCategory.value);
-            if (!isNaN(categoryValue) && isFinite(categoryValue)) {
-                const clampedCategory = Math.max(INPUT_BOUNDS.tariff.min, Math.min(INPUT_BOUNDS.tariff.max, categoryValue));
-                params.set('tariffCategory', clampedCategory.toString());
+            const categoryKey = elements.tariffCategory.value;
+            if (Object.prototype.hasOwnProperty.call(TARIFF_PRESETS, categoryKey)) {
+                params.set('tariffCategory', categoryKey);
             }
         }
         const selectivoPct = elements.inputSelectivo
@@ -376,10 +383,13 @@ function parseQueryParams() {
     const params = new URLSearchParams(window.location.search);
     
     // Parse mode (sanitize - only accept valid values)
-    const mode = params.get('mode');
-    if (mode === 'under200' || mode === 'over200') {
-        state.mode = mode;
-        state.manualModeOverride = true; // URL params imply manual override
+    const override = params.get('override');
+    state.manualModeOverride = override === '1';
+    if (state.manualModeOverride) {
+        const mode = params.get('mode');
+        if (mode === 'under200' || mode === 'over200') {
+            state.mode = mode;
+        }
     }
     
     // Parse unit (sanitize - only accept valid values)
@@ -462,17 +472,14 @@ function parseQueryParams() {
 
     // Parse tariff category preset (optional shortcut)
     const tariffCategory = params.get('tariffCategory');
-    if (tariffCategory && elements.tariffCategory) {
-        const numCategory = parseFloat(tariffCategory);
-        if (!isNaN(numCategory) && isFinite(numCategory)) {
-            const clamped = Math.max(INPUT_BOUNDS.tariff.min, Math.min(INPUT_BOUNDS.tariff.max, numCategory));
-            elements.tariffCategory.value = clamped.toString();
-            if (!tariff) {
-                elements.inputTariff.value = clamped;
-                setTariffCategoryNote('suggested');
-            } else {
-                setTariffCategoryNote();
-            }
+    if (tariffCategory && elements.tariffCategory && Object.prototype.hasOwnProperty.call(TARIFF_PRESETS, tariffCategory)) {
+        elements.tariffCategory.value = tariffCategory;
+        const presetValue = TARIFF_PRESETS[tariffCategory];
+        if (!tariff) {
+            elements.inputTariff.value = presetValue;
+            setTariffCategoryNote('suggested');
+        } else {
+            setTariffCategoryNote();
         }
     }
 
@@ -535,6 +542,8 @@ function parseQueryParams() {
             elements.inputCustomWeightRule.value = customWeightRule;
         }
     }
+
+    updateTariffCategoryNoteFromInput();
 }
 
 // Calculate and render results
@@ -551,19 +560,33 @@ function calculateAndRender() {
     let result;
     let hasKeyInput = true;
     const warnings = [];
+    const shouldRenderCourier = Boolean(elements.courierResults);
+    const finalize = () => {
+        updateShareButton();
+        if (shouldRenderCourier) {
+            calculateAndRenderCourier();
+        }
+    };
     
     if (state.mode === 'under200') {
         const weight = getInputValue(elements.inputWeight, INPUT_BOUNDS.weight);
-        
-        // Check if key input (weight) is missing
-        if (elements.inputWeight.value.trim() === '') {
+        const storeShippingUSD = elements.inputStoreShipping ? getInputValue(elements.inputStoreShipping, INPUT_BOUNDS.storeShipping) : 0;
+        const checkoutTaxUSD = elements.inputCheckoutTax ? getInputValue(elements.inputCheckoutTax, INPUT_BOUNDS.checkoutTax) : 0;
+
+        // Check if key inputs (value + weight) are missing or invalid
+        if (
+            elements.inputValue.value.trim() === '' ||
+            elements.inputWeight.value.trim() === '' ||
+            valueUSD <= 0 ||
+            weight <= 0
+        ) {
             hasKeyInput = false;
         }
         
-        // Warning: value + shipping might exceed $200
-        const shippingUSD = getInputValue(elements.inputShipping, INPUT_BOUNDS.shipping);
-        if (valueUSD < 200 && (valueUSD + shippingUSD) >= 200) {
-            warnings.push('Ojo: si el total supera US$200, puede variar.');
+        // Warning: total paid online might exceed $200
+        const paidOnlineUSD = valueUSD + storeShippingUSD + checkoutTaxUSD;
+        if (valueUSD > 0 && valueUSD < 200 && paidOnlineUSD >= 200) {
+            warnings.push('Ojo: si el total pagado supera US$200, algunas reglas pueden cambiar.');
         }
         
         if (hasKeyInput) {
@@ -578,7 +601,7 @@ function calculateAndRender() {
                 renderResults(elements.results, { 
                     emptyState: 'Error al calcular. Por favor verifica los valores ingresados.' 
                 });
-                updateShareButton();
+                finalize();
                 return;
             }
         }
@@ -590,8 +613,13 @@ function calculateAndRender() {
             : 0;
         
         // Check if key input (value) is missing
-        if (elements.inputValue.value.trim() === '') {
+        if (elements.inputValue.value.trim() === '' || valueUSD <= 0) {
             hasKeyInput = false;
+        }
+        
+        // Warning: courier freight missing/zero can understate CIF
+        if (elements.inputShipping.value.trim() === '' || shippingUSD === 0) {
+            warnings.push('Ojo: si el flete courier está en 0, el cálculo puede subestimar el CIF y los impuestos.');
         }
         
         // Warning: tariff is 0 or empty
@@ -605,14 +633,15 @@ function calculateAndRender() {
                     valueUSD,
                     shippingUSD,
                     tariffPct,
-                    selectivoPct
+                    selectivoPct,
+                    importFeesPaid: state.importFeesPaid
                 });
             } catch (err) {
                 console.error('Calculation error:', err);
                 renderResults(elements.results, { 
                     emptyState: 'Error al calcular. Por favor verifica los valores ingresados.' 
                 });
-                updateShareButton();
+                finalize();
                 return;
             }
         }
@@ -620,11 +649,26 @@ function calculateAndRender() {
     
     // Render results
     if (!hasKeyInput) {
-        const emptyState = state.mode === 'under200' 
-            ? 'Por favor ingresa el peso del producto para calcular los impuestos.'
-            : 'Por favor ingresa el valor del producto para calcular los impuestos.';
-        renderResults(elements.results, { emptyState });
-        updateShareButton();
+        if (state.mode === 'under200') {
+            elements.results.textContent = '';
+            const container = document.createElement('div');
+            container.className = 'text-center space-y-1';
+
+            const title = document.createElement('p');
+            title.className = 'text-gray-800 font-semibold';
+            title.textContent = 'Ingresa el valor y el peso';
+            container.appendChild(title);
+
+            const message = document.createElement('p');
+            message.className = 'text-sm text-gray-500';
+            message.textContent = 'Necesitamos el valor del producto (USD) y el peso para estimar la tasa DGA en envíos menores a US$200.';
+            container.appendChild(message);
+
+            elements.results.appendChild(container);
+        } else {
+            renderResults(elements.results, { emptyState: 'Por favor ingresa el valor del producto para calcular los impuestos.' });
+        }
+        finalize();
         return;
     }
     
@@ -632,7 +676,7 @@ function calculateAndRender() {
         renderResults(elements.results, { 
             emptyState: 'Los resultados aparecerán aquí' 
         });
-        updateShareButton();
+        finalize();
         return;
     }
     
@@ -646,9 +690,9 @@ function calculateAndRender() {
         result.taxLineItems.forEach(item => lineItems.push(item));
     } else {
         const shippingUSD = getInputValue(elements.inputShipping, INPUT_BOUNDS.shipping);
-        const cif = result.baseUSD + shippingUSD;
+        const cif = valueUSD + shippingUSD;
         lineItems.push(
-            { label: 'Valor del producto', valueUSD: result.baseUSD },
+            { label: 'Valor del producto', valueUSD: valueUSD },
             { label: 'Costo de envío', valueUSD: shippingUSD },
             { label: 'CIF (Valor + Envío)', valueUSD: cif }
         );
@@ -668,13 +712,7 @@ function calculateAndRender() {
         note: importFeesNote
     });
     
-    // Update share button state
-    updateShareButton();
-    
-    // Calculate and render courier fees (if courier section exists)
-    if (elements.courierResults) {
-        calculateAndRenderCourier();
-    }
+    finalize();
 }
 
 // Calculate and render courier fees (market estimate)
@@ -717,7 +755,8 @@ function calculateAndRenderCourier() {
                     valueUSD,
                     shippingUSD,
                     tariffPct,
-                    selectivoPct
+                    selectivoPct,
+                    importFeesPaid
                 });
             } catch (err) {
                 console.error('Tax calculation error:', err);
@@ -752,7 +791,7 @@ function calculateAndRenderCourier() {
             maxDOP: customTotalDOP,
             isCustom: true,
             billedWeight
-        }, taxResult, fxRate);
+        }, taxResult, fxRate, importFeesPaid);
         return;
     }
     
@@ -831,7 +870,7 @@ function updateStickyBar(localTotalDOP) {
 }
 
 // Render market estimate results
-function renderMarketEstimateResults({ typicalDOP, minDOP, maxDOP, isCustom, billedWeight }, taxResult, fxRate, importFeesPaid) {
+function renderMarketEstimateResults({ typicalDOP, minDOP, maxDOP, isCustom, billedWeight }, taxResult, fxRate, importFeesPaid = false) {
     if (!elements.courierResults) return;
     
     elements.courierResults.classList.remove('hidden');
@@ -843,9 +882,9 @@ function renderMarketEstimateResults({ typicalDOP, minDOP, maxDOP, isCustom, bil
     // Local total (DOP) - taxes + courier fees
     if (fxRate > 0 && (taxResult || typicalDOP > 0)) {
         const taxUSD = taxResult ? taxResult.taxTotalUSD : 0;
-        const effectiveTaxUSDForLocal = importFeesPaid ? 0 : taxUSD;
-        const taxDOP = effectiveTaxUSDForLocal * fxRate;
-        const localTotalDOP = taxDOP + typicalDOP;
+        const taxDueUSD = taxResult ? (taxResult.taxDueUSD ?? taxUSD) : 0;
+        const taxDueDOP = taxDueUSD * fxRate;
+        const localTotalDOP = taxDueDOP + typicalDOP;
 
         if (localTotalDOP > 0) {
             const totalDiv = document.createElement('div');
@@ -869,8 +908,18 @@ function renderMarketEstimateResults({ typicalDOP, minDOP, maxDOP, isCustom, bil
             breakdown.appendChild(courierLine);
 
             const taxLine = document.createElement('div');
-            taxLine.textContent = `Impuestos importaciA3n: ${formatDOP(taxDOP)}`;
-            breakdown.appendChild(taxLine);
+            if (importFeesPaid && taxUSD > 0 && taxDueUSD === 0) {
+                taxLine.textContent = `Impuestos (ya pagados): ${formatDOP(taxUSD * fxRate)}`;
+                breakdown.appendChild(taxLine);
+
+                const taxNote = document.createElement('div');
+                taxNote.className = 'text-xs text-gray-500 sm:col-span-2';
+                taxNote.textContent = 'Nota: si tu compra ya incluyo "Import Fees", no se suman al total local.';
+                breakdown.appendChild(taxNote);
+            } else {
+                taxLine.textContent = `Impuestos de importación: ${formatDOP(taxDueDOP)}`;
+                breakdown.appendChild(taxLine);
+            }
 
             totalDiv.appendChild(breakdown);
             container.appendChild(totalDiv);
@@ -961,7 +1010,7 @@ function renderMarketEstimateResults({ typicalDOP, minDOP, maxDOP, isCustom, bil
 
         const taxHelper = document.createElement('div');
         taxHelper.className = 'text-xs text-gray-500 mb-2';
-        taxHelper.textContent = 'Impuestos de importaciA3n (Aduanas/DGII). No incluye ITBIS del courier.';
+        taxHelper.textContent = 'Impuestos de importación (Aduanas/DGII). No incluye ITBIS del courier.';
         taxesDiv.appendChild(taxHelper);
         
         const taxUSD = document.createElement('div');
@@ -970,10 +1019,18 @@ function renderMarketEstimateResults({ typicalDOP, minDOP, maxDOP, isCustom, bil
         taxesDiv.appendChild(taxUSD);
         
         if (fxRate > 0) {
+            const taxDueUSD = taxResult.taxDueUSD ?? taxResult.taxTotalUSD;
             const taxDOP = document.createElement('div');
             taxDOP.className = 'text-base font-semibold text-blue-600';
             taxDOP.textContent = `DOP: ${formatDOP(taxResult.taxTotalUSD * fxRate)}`;
             taxesDiv.appendChild(taxDOP);
+
+            if (importFeesPaid && taxDueUSD === 0) {
+                const paidNote = document.createElement('div');
+                paidNote.className = 'text-xs text-gray-500 mt-1';
+                paidNote.textContent = 'Marcaste Import Fees: este monto se muestra solo como referencia.';
+                taxesDiv.appendChild(paidNote);
+            }
         }
         
         container.appendChild(taxesDiv);
@@ -1014,35 +1071,21 @@ function render() {
     if (elements.modeDebug) {
         if (!DEBUG_ENABLED) {
             elements.modeDebug.classList.add('hidden');
-            return;
+        } else {
+            elements.modeDebug.classList.remove('hidden');
+            const overrideStatus = state.manualModeOverride ? 'override' : 'auto';
+            elements.modeDebug.textContent = `Modo actual: ${state.mode} (${overrideStatus}) | Valor: $${valueUSD.toFixed(2)}`;
         }
-        elements.modeDebug.classList.remove('hidden');
-        const overrideStatus = state.manualModeOverride ? 'override' : 'auto';
-        elements.modeDebug.textContent = `Modo actual: ${state.mode} (${overrideStatus}) | FOB: $${valueUSD.toFixed(2)}`;
     }
-    
+
     if (state.mode === 'under200') {
         elements.modeHelperText.textContent = 'Regla ≤ US$200: tasa DGA por kilo o fracción.';
         
-        // Show weight input (always visible and open in under200 - required field)
-        if (elements.weightDetails) {
-            elements.weightDetails.open = true; // Open by default in under200
-            if (elements.weightSummary) {
-                elements.weightSummary.textContent = 'Peso';
-            }
-        }
         elements.shippingContainer.classList.add('hidden');
         elements.tariffContainer.classList.add('hidden');
     } else {
         elements.modeHelperText.textContent = `Modo ≥ US$200: cálculo basado en CIF + arancel + ITBIS.`;
         
-        // Weight is optional/collapsed in over200 mode
-        if (elements.weightDetails) {
-            elements.weightDetails.open = false; // Collapsed by default in over200
-            if (elements.weightSummary) {
-                elements.weightSummary.textContent = 'Peso (opcional)';
-            }
-        }
         elements.shippingContainer.classList.remove('hidden');
         elements.tariffContainer.classList.remove('hidden');
     }
@@ -1129,16 +1172,17 @@ function updateTariffCategoryNoteFromInput() {
         return;
     }
 
-    const categoryValue = parseFloat(elements.tariffCategory.value);
-    if (isNaN(categoryValue) || !isFinite(categoryValue)) {
+    const categoryKey = elements.tariffCategory.value;
+    const presetValue = TARIFF_PRESETS[categoryKey];
+
+    if (presetValue === undefined) {
         setTariffCategoryNote();
         return;
     }
 
-    const clampedCategory = Math.max(INPUT_BOUNDS.tariff.min, Math.min(INPUT_BOUNDS.tariff.max, categoryValue));
     const tariffValue = getInputValue(elements.inputTariff, INPUT_BOUNDS.tariff);
 
-    if (tariffValue !== clampedCategory) {
+    if (tariffValue !== presetValue) {
         setTariffCategoryNote('modified');
     } else {
         setTariffCategoryNote('suggested');
@@ -1150,17 +1194,11 @@ elements.inputValue.addEventListener('input', () => {
     validateInput(elements.inputValue, INPUT_BOUNDS.value);
     updatePaidOnlineSummary();
     debouncedCalculate();
-    if (elements.courierResults) {
-        calculateAndRenderCourier();
-    }
 });
 elements.inputValue.addEventListener('change', () => {
     validateInput(elements.inputValue, INPUT_BOUNDS.value);
     updatePaidOnlineSummary();
     calculateAndRender();
-    if (elements.courierResults) {
-        calculateAndRenderCourier();
-    }
 });
 
 // Store shipping event listeners
@@ -1168,10 +1206,12 @@ if (elements.inputStoreShipping) {
     elements.inputStoreShipping.addEventListener('input', () => {
         validateInput(elements.inputStoreShipping, INPUT_BOUNDS.storeShipping);
         updatePaidOnlineSummary();
+        debouncedCalculate();
     });
     elements.inputStoreShipping.addEventListener('change', () => {
         validateInput(elements.inputStoreShipping, INPUT_BOUNDS.storeShipping);
         updatePaidOnlineSummary();
+        calculateAndRender();
     });
 }
 
@@ -1180,26 +1220,22 @@ if (elements.inputCheckoutTax) {
     elements.inputCheckoutTax.addEventListener('input', () => {
         validateInput(elements.inputCheckoutTax, INPUT_BOUNDS.checkoutTax);
         updatePaidOnlineSummary();
+        debouncedCalculate();
     });
     elements.inputCheckoutTax.addEventListener('change', () => {
         validateInput(elements.inputCheckoutTax, INPUT_BOUNDS.checkoutTax);
         updatePaidOnlineSummary();
+        calculateAndRender();
     });
 }
 
 elements.inputWeight.addEventListener('input', () => {
     validateInput(elements.inputWeight, INPUT_BOUNDS.weight);
     debouncedCalculate();
-    if (elements.courierResults) {
-        calculateAndRenderCourier();
-    }
 });
 elements.inputWeight.addEventListener('change', () => {
     validateInput(elements.inputWeight, INPUT_BOUNDS.weight);
     calculateAndRender();
-    if (elements.courierResults) {
-        calculateAndRenderCourier();
-    }
 });
 
 elements.inputShipping.addEventListener('input', () => {
@@ -1229,7 +1265,12 @@ if (elements.tariffCategory) {
             setTariffCategoryNote();
             return;
         }
-        elements.inputTariff.value = selectedValue;
+        const presetValue = TARIFF_PRESETS[selectedValue];
+        if (presetValue === undefined) {
+            setTariffCategoryNote();
+            return;
+        }
+        elements.inputTariff.value = presetValue;
         validateInput(elements.inputTariff, INPUT_BOUNDS.tariff);
         setTariffCategoryNote('suggested');
         calculateAndRender();
@@ -1251,9 +1292,6 @@ if (elements.inputImportFeesPaid) {
     elements.inputImportFeesPaid.addEventListener('change', (e) => {
         state.importFeesPaid = e.target.checked;
         calculateAndRender();
-        if (elements.courierResults) {
-            calculateAndRenderCourier();
-        }
     });
 }
 
@@ -1326,32 +1364,53 @@ function renderCourierCards() {
         return;
     }
     
-    // Sanitize courier data before rendering
-    const safeCouriers = COURIER_CARDS.map(courier => {
-        const safeName = String(courier.name || '').replace(/[<>]/g, '');
-        const safeBullets = (courier.bullets || []).map(b => String(b || '').replace(/[<>]/g, ''));
-        const safeUrl = String(courier.url || '').replace(/[<>]/g, '');
-        return { name: safeName, bullets: safeBullets, url: safeUrl };
+    elements.courierCards.textContent = '';
+
+    COURIER_CARDS.forEach(courier => {
+        const card = document.createElement('div');
+        card.className = 'border border-gray-200 rounded-lg p-4';
+
+        const title = document.createElement('h3');
+        title.className = 'font-semibold mb-3 text-gray-800';
+        title.textContent = courier.name || '';
+        card.appendChild(title);
+
+        const list = document.createElement('ul');
+        list.className = 'text-sm text-gray-600 mb-4 space-y-1';
+        list.setAttribute('role', 'list');
+
+        (courier.bullets || []).forEach(bullet => {
+            const li = document.createElement('li');
+            li.className = 'flex items-start';
+
+            const icon = document.createElement('span');
+            icon.className = 'mr-2';
+            icon.textContent = '•';
+
+            const text = document.createElement('span');
+            text.textContent = bullet || '';
+
+            li.appendChild(icon);
+            li.appendChild(text);
+            list.appendChild(li);
+        });
+        card.appendChild(list);
+
+        const link = document.createElement('a');
+        link.href = courier.url || '#';
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.className = 'block w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition text-center';
+        link.setAttribute('aria-label', `Ver más sobre ${courier.name || 'courier'}`);
+        link.textContent = 'Ver más';
+        card.appendChild(link);
+
+        elements.courierCards.appendChild(card);
     });
-    
-    elements.courierCards.innerHTML = safeCouriers.map(courier => `
-        <div class="border border-gray-200 rounded-lg p-4">
-            <h3 class="font-semibold mb-3 text-gray-800">${courier.name}</h3>
-            <ul class="text-sm text-gray-600 mb-4 space-y-1" role="list">
-                ${courier.bullets.map(bullet => `<li class="flex items-start"><span class="mr-2">•</span><span>${bullet}</span></li>`).join('')}
-            </ul>
-            <a 
-                href="${courier.url}" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                class="block w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition text-center"
-                aria-label="Ver más sobre ${courier.name}"
-            >
-                Ver más
-            </a>
-        </div>
-    `).join('');
 }
+
+let lastFocusedElement = null;
+let previousBodyOverflow = '';
 
 function buildMailtoUrl({ to, subject, body }) {
     const encodedSubject = encodeURIComponent(subject);
@@ -1385,6 +1444,10 @@ function openEmailModal(type) {
         return;
     }
 
+    lastFocusedElement = document.activeElement;
+    previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
     const template = getEmailTemplate(type);
     if (elements.emailModalTitle) {
         elements.emailModalTitle.textContent = template.title;
@@ -1409,6 +1472,12 @@ function closeEmailModal() {
     }
     elements.emailModal.classList.add('hidden');
     elements.emailModal.classList.remove('flex');
+    document.body.style.overflow = previousBodyOverflow || '';
+    previousBodyOverflow = '';
+    if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+        lastFocusedElement.focus();
+    }
+    lastFocusedElement = null;
 }
 
 // Render official sources list (safe rendering)

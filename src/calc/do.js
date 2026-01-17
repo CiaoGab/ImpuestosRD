@@ -20,7 +20,7 @@ export function toKg(weight, unit) {
  * @param {number} params.valueUSD - Product value in USD
  * @param {number} params.weight - Weight value
  * @param {string} params.unit - 'lb' or 'kg'
- * @returns {Object} Calculation result with baseUSD, taxTotalUSD, grandTotalUSD, taxLineItems
+ * @returns {Object} Calculation result with baseUSD, taxTotalUSD, taxDueUSD, grandTotalUSD, taxLineItems
  */
 export function calcUnder200({ valueUSD, weight, unit }) {
     // Clamp negative values to 0
@@ -42,11 +42,13 @@ export function calcUnder200({ valueUSD, weight, unit }) {
     
     const baseUSD = safeValueUSD;
     const taxTotalUSD = dgaFeeUSD;
-    const grandTotalUSD = baseUSD + taxTotalUSD;
+    const taxDueUSD = taxTotalUSD;
+    const grandTotalUSD = baseUSD + taxDueUSD;
     
     return {
         baseUSD,
         taxTotalUSD,
+        taxDueUSD,
         grandTotalUSD,
         taxLineItems
     };
@@ -59,9 +61,10 @@ export function calcUnder200({ valueUSD, weight, unit }) {
  * @param {number} params.shippingUSD - Shipping cost in USD
  * @param {number} params.tariffPct - Tariff percentage
  * @param {number} params.selectivoPct - Selectivo percentage
- * @returns {Object} Calculation result with baseUSD, taxTotalUSD, grandTotalUSD, taxLineItems
+ * @param {boolean} [params.importFeesPaid=false] - Whether import taxes were already paid
+ * @returns {Object} Calculation result with baseUSD, taxTotalUSD, taxDueUSD, grandTotalUSD, taxLineItems
  */
-export function calcOver200({ valueUSD, shippingUSD, tariffPct, selectivoPct = 0 }) {
+export function calcOver200({ valueUSD, shippingUSD, tariffPct, selectivoPct = 0, importFeesPaid = false }) {
     // Clamp negative values to 0
     const value = Math.max(0, valueUSD || 0);
     const shipping = Math.max(0, shippingUSD || 0);
@@ -90,13 +93,15 @@ export function calcOver200({ valueUSD, shippingUSD, tariffPct, selectivoPct = 0
         note: selectivo > 0 ? 'Sobre CIF + Arancel + Selectivo' : 'Sobre CIF + Arancel'
     });
     
-    const baseUSD = value;
+    const baseUSD = cif;
     const taxTotalUSD = tariff + selectivo + itbis;
-    const grandTotalUSD = value + shipping + taxTotalUSD;
+    const taxDueUSD = importFeesPaid ? 0 : taxTotalUSD;
+    const grandTotalUSD = baseUSD + taxDueUSD;
     
     return {
         baseUSD,
         taxTotalUSD,
+        taxDueUSD,
         grandTotalUSD,
         taxLineItems
     };

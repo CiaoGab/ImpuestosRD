@@ -13,14 +13,6 @@ import { formatUSD } from './format.js';
  * @param {string} [options.emptyState] - Message to show when no results
  * @param {string} [options.note] - Optional note to show below results
  */
-// Escape HTML to prevent XSS (simple version for numeric/known-safe content)
-function escapeHtml(text) {
-    if (text === null || text === undefined) return '';
-    const div = document.createElement('div');
-    div.textContent = String(text);
-    return div.innerHTML;
-}
-
 export function renderResults(el, { title, lineItems, total, totalLabel, warnings, emptyState, note }) {
     // Smooth transition
     el.style.opacity = '0.7';
