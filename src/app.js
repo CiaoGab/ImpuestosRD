@@ -11,8 +11,9 @@ import { COURIERS_DO } from './data/couriers-do.js';
 // STRIPE_PAYMENT_LINK_URL: Set your Stripe Payment Link here.
 // Remember to configure the Stripe Payment Link success redirect URL to /gracias.html
 const STRIPE_PAYMENT_LINK_URL = '<PUT_STRIPE_PAYMENT_LINK_HERE>';
+const CONTACT_EMAIL = 'vallejo.juangabriel@gmail.com';
 const SHOW_SUPPORT = false; // Feature flag for support section
-const SHOW_COURIERS = false; // Feature flag for couriers section
+const SHOW_COURIERS_DIRECTORY = false; // Feature flag for courier directory
 const SHOW_COURIER_BREAKDOWN = false; // Future flag to re-enable courier breakdown UI
 const DEBUG_ENABLED = new URLSearchParams(window.location.search).get('debug') === '1';
 
@@ -87,9 +88,19 @@ const elements = {
     inputImportFeesPaid: document.getElementById('input-import-fees-paid'),
     results: document.getElementById('results'),
     shareBtn: document.getElementById('share-btn'),
+    feedbackLinkPrimary: document.getElementById('feedback-link-primary'),
     supportSection: document.getElementById('support-section'),
     supportBtnPrimary: document.getElementById('support-btn-primary'),
     footerSupportLink: document.getElementById('footer-support-link'),
+    footerFeedbackLink: document.getElementById('footer-feedback-link'),
+    emailModal: document.getElementById('email-modal'),
+    emailModalTitle: document.getElementById('email-modal-title'),
+    emailClose: document.getElementById('email-close'),
+    emailCancel: document.getElementById('email-cancel'),
+    emailSend: document.getElementById('email-send'),
+    emailFrom: document.getElementById('email-from'),
+    emailSubject: document.getElementById('email-subject'),
+    emailBody: document.getElementById('email-body'),
     couriersSection: document.getElementById('couriers-section'),
     courierCards: document.getElementById('courier-cards'),
     sourcesList: document.getElementById('sources-list'),
@@ -1171,7 +1182,7 @@ function setupSupportLinks() {
 
 // Render courier cards
 function renderCourierCards() {
-    if (!SHOW_COURIERS || !elements.courierCards) {
+    if (!SHOW_COURIERS_DIRECTORY || !elements.courierCards) {
         return;
     }
     
@@ -1200,6 +1211,64 @@ function renderCourierCards() {
             </a>
         </div>
     `).join('');
+}
+
+function buildMailtoUrl({ to, subject, body }) {
+    const encodedSubject = encodeURIComponent(subject);
+    const encodedBody = encodeURIComponent(body);
+    return `mailto:${to}?subject=${encodedSubject}&body=${encodedBody}`;
+}
+
+function getEmailTemplate(type) {
+    if (type === 'ads') {
+        return {
+            title: 'Anúnciate en ImpuestosRD',
+            subject: 'Publicidad en ImpuestosRD',
+            body:
+                'Hola,\n\nMe interesa anunciarme en ImpuestosRD.\n\nNombre de la empresa:\nSitio web:\nTipo (courier/tienda):\nPresupuesto mensual (aprox):\nMensaje:\n\nGracias,\n'
+        };
+    }
+
+    return {
+        title: 'Reportar un error',
+        subject: 'Bug en ImpuestosRD',
+        body:
+            'Describe el problema:\n\nPasos para reproducir:\n1)\n2)\n\nResultado esperado:\n\nResultado actual:\n\nLink:\n' +
+            `${window.location.href}\n\n` +
+            'Datos (si aplica):\nFOB:\nPeso:\nModo:\n\nNavegador:\n' +
+            `${navigator.userAgent}\n`
+    };
+}
+
+function openEmailModal(type) {
+    if (!elements.emailModal || !elements.emailSubject || !elements.emailBody) {
+        return;
+    }
+
+    const template = getEmailTemplate(type);
+    if (elements.emailModalTitle) {
+        elements.emailModalTitle.textContent = template.title;
+    }
+    if (elements.emailFrom) {
+        elements.emailFrom.value = '';
+    }
+    elements.emailSubject.value = template.subject;
+    elements.emailBody.value = template.body;
+
+    elements.emailModal.classList.remove('hidden');
+    elements.emailModal.classList.add('flex');
+
+    setTimeout(() => {
+        elements.emailSubject.focus();
+    }, 0);
+}
+
+function closeEmailModal() {
+    if (!elements.emailModal) {
+        return;
+    }
+    elements.emailModal.classList.add('hidden');
+    elements.emailModal.classList.remove('flex');
 }
 
 // Render official sources list (safe rendering)
@@ -1330,7 +1399,7 @@ renderCourierCards();
 
 // Show/hide couriers section based on feature flag
 if (elements.couriersSection) {
-    if (SHOW_COURIERS) {
+    if (SHOW_COURIERS_DIRECTORY) {
         elements.couriersSection.classList.remove('hidden');
     } else {
         elements.couriersSection.classList.add('hidden');
@@ -1338,3 +1407,70 @@ if (elements.couriersSection) {
 }
 
 renderSources();
+
+// Email modal events
+document.querySelectorAll('[data-email-type]').forEach(trigger => {
+    trigger.addEventListener('click', (event) => {
+        event.preventDefault();
+        const type = trigger.getAttribute('data-email-type') || 'bug';
+        openEmailModal(type);
+    });
+});
+
+if (elements.emailCancel) {
+    elements.emailCancel.addEventListener('click', () => {
+        closeEmailModal();
+    });
+}
+
+if (elements.emailClose) {
+    elements.emailClose.addEventListener('click', () => {
+        closeEmailModal();
+    });
+}
+
+if (elements.emailModal) {
+    elements.emailModal.addEventListener('click', (event) => {
+        if (event.target === elements.emailModal) {
+            closeEmailModal();
+        }
+    });
+}
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && elements.emailModal && !elements.emailModal.classList.contains('hidden')) {
+        closeEmailModal();
+    }
+});
+
+if (elements.emailSend) {
+    elements.emailSend.addEventListener('click', () => {
+        if (!elements.emailSubject || !elements.emailBody) {
+            return;
+        }
+        const subject = elements.emailSubject.value.trim();
+        const body = elements.emailBody.value.trim();
+
+        if (!subject) {
+            elements.emailSubject.focus();
+            return;
+        }
+        if (!body) {
+            elements.emailBody.focus();
+            return;
+        }
+
+        const from = elements.emailFrom ? elements.emailFrom.value.trim() : '';
+        const fullBody = from ? `Contacto: ${from}\n\n${body}` : body;
+        const mailtoUrl = buildMailtoUrl({
+            to: CONTACT_EMAIL,
+            subject,
+            body: fullBody
+        });
+
+        window.location.href = mailtoUrl;
+        setTimeout(() => {
+            closeEmailModal();
+        }, 100);
+    });
+}
