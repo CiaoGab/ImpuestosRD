@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://impuestosrd.com/sitemap.xml
+Sitemap: https://impuestosdr.com/sitemap.xml

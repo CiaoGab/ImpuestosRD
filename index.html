@@ -3,23 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ImpuestosRD - Calculadora de Impuestos de Importación</title>
-    <meta name="description" content="Calculadora de impuestos de importación para República Dominicana. Calcula impuestos según la regla de $200 USD y tasa DGA por kilo.">
+    <title>ImpuestosRD | Calculadora de impuestos de importación en RD</title>
+    <meta name="description" content="Calcula impuestos de importación en República Dominicana: regla de US$200, DGA por kilo, arancel e ITBIS. Incluye estimación de courier y total en RD$.">
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:locale" content="es_DO">
-    <meta property="og:title" content="ImpuestosRD - Calculadora de Impuestos de Importación">
-    <meta property="og:description" content="Calculadora de impuestos de importación para República Dominicana. Calcula impuestos según la regla de $200 USD y tasa DGA por kilo.">
-    <meta property="og:url" content="https://impuestosrd.com">
+    <meta property="og:title" content="ImpuestosRD | Calculadora de impuestos de importación en RD">
+    <meta property="og:description" content="Calcula impuestos de importación en República Dominicana: regla de US$200, DGA por kilo, arancel e ITBIS. Incluye estimación de courier y total en RD$.">
+    <meta property="og:url" content="https://impuestosdr.com">
     
     <!-- Twitter -->
     <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="ImpuestosRD - Calculadora de Impuestos de Importación">
-    <meta name="twitter:description" content="Calculadora de impuestos de importación para República Dominicana. Calcula impuestos según la regla de $200 USD y tasa DGA por kilo.">
+    <meta name="twitter:title" content="ImpuestosRD | Calculadora de impuestos de importación en RD">
+    <meta name="twitter:description" content="Calcula impuestos de importación en República Dominicana: regla de US$200, DGA por kilo, arancel e ITBIS. Incluye estimación de courier y total en RD$.">
+    <meta name="twitter:url" content="https://impuestosdr.com">
     
     <!-- Canonical URL -->
-    <link rel="canonical" href="https://impuestosrd.com">
+    <link rel="canonical" href="https://impuestosdr.com">
+    <link rel="alternate" hreflang="es-do" href="https://impuestosdr.com/">
+    <link rel="alternate" hreflang="es" href="https://impuestosdr.com/">
+    <link rel="alternate" hreflang="x-default" href="https://impuestosdr.com/">
+    <meta name="robots" content="index,follow">
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "ImpuestosRD",
+  "url": "https://impuestosdr.com/",
+  "inLanguage": "es-DO"
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "ImpuestosRD",
+  "url": "https://impuestosdr.com/",
+  "email": "mailto:vallejo.juangabriel@gmail.com"
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "¿Cómo funciona la regla de US$200 en couriers?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "La calculadora usa el valor del producto (FOB) para estimar si aplica un escenario de ≤ US$200 o > US$200. El resultado es informativo y puede variar según Aduanas y tu courier."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "¿Qué es el valor FOB?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "FOB es el precio del producto sin incluir flete del courier ni otros cargos. Se usa como base para estimaciones."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "¿El total incluye gastos del courier?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Incluye una estimación de flete por libra. No incluye peso volumétrico, manejo especial, seguros ni cargos adicionales que varían por courier."
+      }
+    }
+  ]
+}
+    </script>
     
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
