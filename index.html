@@ -4,35 +4,44 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ImpuestosRD | Calculadora de impuestos de importación en RD</title>
-    <meta name="description" content="Calcula impuestos de importación en República Dominicana: regla de US$200, DGA por kilo, arancel e ITBIS. Incluye estimación de courier y total en RD$.">
+    <meta name="description" content="Calcula impuestos de importación en República Dominicana: regla US$200, DGA por kilo, arancel e ITBIS. Incluye estimado de courier y total en RD$.">
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:locale" content="es_DO">
+    <meta property="og:site_name" content="ImpuestosRD">
     <meta property="og:title" content="ImpuestosRD | Calculadora de impuestos de importación en RD">
-    <meta property="og:description" content="Calcula impuestos de importación en República Dominicana: regla de US$200, DGA por kilo, arancel e ITBIS. Incluye estimación de courier y total en RD$.">
-    <meta property="og:url" content="https://impuestosdr.com">
+    <meta property="og:description" content="Calcula impuestos de importación en República Dominicana: regla US$200, DGA por kilo, arancel e ITBIS. Incluye estimado de courier y total en RD$.">
+    <meta property="og:url" content="https://impuestosdr.com/">
     
     <!-- Twitter -->
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="ImpuestosRD | Calculadora de impuestos de importación en RD">
-    <meta name="twitter:description" content="Calcula impuestos de importación en República Dominicana: regla de US$200, DGA por kilo, arancel e ITBIS. Incluye estimación de courier y total en RD$.">
-    <meta name="twitter:url" content="https://impuestosdr.com">
+    <meta name="twitter:description" content="Calcula impuestos de importación en República Dominicana: regla US$200, DGA por kilo, arancel e ITBIS. Incluye estimado de courier y total en RD$.">
+    <meta name="twitter:url" content="https://impuestosdr.com/">
     
     <!-- Canonical URL -->
-    <link rel="canonical" href="https://impuestosdr.com">
-    <link rel="alternate" hreflang="es-do" href="https://impuestosdr.com/">
-    <link rel="alternate" hreflang="es" href="https://impuestosdr.com/">
+    <link rel="canonical" href="https://impuestosdr.com/">
+    <link rel="alternate" hreflang="es-DO" href="https://impuestosdr.com/">
     <link rel="alternate" hreflang="x-default" href="https://impuestosdr.com/">
     <meta name="robots" content="index,follow">
 
     <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "WebSite",
+  "@type": "WebApplication",
   "name": "ImpuestosRD",
+  "description": "Calculadora de impuestos de importación en República Dominicana con estimado de courier.",
   "url": "https://impuestosdr.com/",
-  "inLanguage": "es-DO"
+  "inLanguage": "es-DO",
+  "applicationCategory": "FinanceApplication",
+  "operatingSystem": "Web",
+  "isAccessibleForFree": true,
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -145,7 +154,7 @@
                     <label for="input-weight" class="block text-sm font-medium text-gray-700 mb-1">
                         Peso
                     </label>
-                    <p class="text-xs text-gray-500 mb-1">Necesario para estimar courier y la regla ≤ US$200.</p>
+                    <p class="text-xs text-gray-500 mb-1">Necesario para estimar courier y la regla ≤ US$200. Si no sabes el peso exacto, usa un estimado.</p>
                     <div class="flex gap-2">
                         <input 
                             type="number" 
@@ -238,21 +247,21 @@
                 <!-- Tariff Input (only for over200) -->
                 <div id="tariff-container" class="hidden">
                     <label for="input-tariff-category" class="block text-sm font-medium text-gray-700 mb-1">
-                        Categoria (preset)
+                        Categoría (preset)
                     </label>
                     <select
                         id="input-tariff-category"
                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                        aria-label="Categoria de arancel (preset)"
+                        aria-label="Categoría de arancel (preset)"
                     >
-                        <option value="">Seleccionar categoria</option>
-                        <option value="electronics">Electronica (0%)</option>
+                        <option value="">Seleccionar categoría</option>
+                        <option value="electronics">Electrónica (0%)</option>
                         <option value="clothing">Ropa / Calzado / Accesorios (20%)</option>
                         <option value="supplements">Suplementos (10%)</option>
                         <option value="books">Libros (0%)</option>
                         <option value="other">Otros (10%)</option>
                     </select>
-                    <p class="text-xs text-gray-500 mt-1 mb-2">Estimacion. El arancel real depende de la clasificacion del producto.</p>
+                    <p class="text-xs text-gray-500 mt-1 mb-2">Estimación. El arancel real depende de la clasificación del producto.</p>
                     <label for="input-tariff" class="block text-sm font-medium text-gray-700 mb-1">
                         Arancel (%)
                     </label>
@@ -267,11 +276,11 @@
                         placeholder="0.00"
                         aria-label="Arancel en porcentaje"
                     >
-                    <p id="tariff-category-note" class="text-xs text-blue-600 mt-2 hidden">Sugerido por categoria (editable)</p>
+                    <p id="tariff-category-note" class="text-xs text-blue-600 mt-2 hidden">Sugerido por categoría (editable)</p>
                     <label for="input-selectivo" class="block text-sm font-medium text-gray-700 mt-3 mb-1">
                         Selectivo (%) (opcional)
                     </label>
-                    <p class="text-xs text-gray-500 mb-1">Si no aplica, dejalo en 0.</p>
+                    <p class="text-xs text-gray-500 mb-1">Si no aplica, déjalo en 0.</p>
                     <input 
                         type="number" 
                         id="input-selectivo" 
@@ -292,103 +301,92 @@
                         >
                         <span class="text-sm text-gray-700">Ya pagué impuestos de importación en la compra (Import Fees)</span>
                     </label>
-                    <p class="text-xs text-gray-500 mt-1">Si tu compra incluye “Import Fees”, puede que no pagues impuestos al retirar.</p>
+                    <p class="text-xs text-gray-500 mt-1">Si tu compra incluye “Import Fees”, es posible que ya estén pagados al retirar (depende del vendedor y del courier).</p>
                 </div>
             </div>
 
-            <!-- Results Container -->
-            <div id="results" class="mt-6 p-4 bg-gray-50 rounded-md min-h-[100px] transition-opacity duration-200 overflow-x-auto">
-                <p class="text-gray-500 text-center">Los resultados aparecerán aquí</p>
+            <!-- Results Section -->
+<div id="results-card" class="mt-6 p-4 bg-gray-50 rounded-md">
+    <div id="results" class="min-h-[100px] transition-opacity duration-200 overflow-x-auto">
+        <p class="text-gray-500 text-center">Los resultados apareceran aqui</p>
+    </div>
+
+    <details class="mt-4">
+        <summary class="cursor-pointer text-sm text-blue-600 hover:text-blue-700 underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-1">
+            Ajustes (tasa, interior, tarifa)
+        </summary>
+        <div class="mt-3 space-y-4">
+            <!-- FX Rate Input -->
+            <div>
+                <label for="input-fx-rate" class="block text-sm font-medium text-gray-700 mb-1">
+                    Tasa USD a DOP
+                </label>
+                <input 
+                    type="number" 
+                    id="input-fx-rate" 
+                    step="0.01" 
+                    min="0"
+                    max="1000"
+                    inputmode="decimal"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                    placeholder="58.50"
+                    aria-label="Tasa de cambio de dA3lares a pesos dominicanos"
+                >
             </div>
 
-            <!-- Courier Market Estimate Section -->
-            <div id="courier-section" class="mt-6 p-4 bg-blue-50 rounded-md border border-blue-200">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4">Costo estimado (promedio de mercado)</h3>
-                
-                <div class="space-y-4">
-                    <details>
-                        <summary class="cursor-pointer text-sm text-blue-600 hover:text-blue-700 underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-1">
-                            Ajustes (tasa, interior, tarifa)
-                        </summary>
-                        <div class="mt-3 space-y-4">
-                            <!-- FX Rate Input -->
-                            <div>
-                                <label for="input-fx-rate" class="block text-sm font-medium text-gray-700 mb-1">
-                                    Tasa USD a DOP
-                                </label>
-                                <input 
-                                    type="number" 
-                                    id="input-fx-rate" 
-                                    step="0.01" 
-                                    min="0"
-                                    max="1000"
-                                    inputmode="decimal"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                                    placeholder="58.50"
-                                    aria-label="Tasa de cambio de dólares a pesos dominicanos"
-                                >
-                            </div>
-
-                            <!-- Interior Toggle -->
-                            <div>
-                                <label class="flex items-center">
-                                    <input 
-                                        type="checkbox" 
-                                        id="input-interior"
-                                        class="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                        aria-label="Envío al interior"
-                                    >
-                                    <span class="text-sm text-gray-700">Interior (puede aplicar transporte adicional)</span>
-                                </label>
-                                <p class="text-xs text-gray-500 mt-1">Aplica cargo adicional de transporte interior</p>
-                                <p id="interior-note" class="text-xs text-yellow-700 mt-1 hidden">Interior puede variar segun courier.</p>
-                            </div>
-
-                            <!-- Custom Rate (Optional) -->
-                            <details class="mt-1">
-                                <summary class="cursor-pointer text-sm text-blue-600 hover:text-blue-700 underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-1">
-                                    Personalizar: conozco mi tarifa (USD/lb)
-                                </summary>
-                                <div class="mt-2">
-                                    <label for="input-custom-rate" class="block text-sm font-medium text-gray-700 mb-1">
-                                        Tarifa personalizada (USD/lb)
-                                    </label>
-                                    <input 
-                                        type="number" 
-                                        id="input-custom-rate" 
-                                        step="0.01" 
-                                        min="0"
-                                        max="100"
-                                        inputmode="decimal"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                                        placeholder="2.50"
-                                        aria-label="Tarifa personalizada por libra"
-                                    >
-                                    <label for="input-custom-weight-rule" class="block text-sm font-medium text-gray-700 mt-3 mb-1">
-                                        Cobro por peso
-                                    </label>
-                                    <select
-                                        id="input-custom-weight-rule"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                                        aria-label="Regla de cobro por peso"
-                                    >
-                                        <option value="ceil">Redondea hacia arriba</option>
-                                        <option value="exact">Exacto</option>
-                                        <option value="min1">Mínimo 1 lb</option>
-                                    </select>
-                                </div>
-                            </details>
-                        </div>
-                    </details>
-                </div>
-
-                <!-- Market Estimate Results -->
-                <div id="courier-results" class="mt-4 p-4 bg-white rounded-md border border-gray-200 min-h-[100px] hidden">
-                    <!-- Results will be rendered here -->
-                </div>
+            <!-- Interior Toggle -->
+            <div>
+                <label class="flex items-center">
+                    <input 
+                        type="checkbox" 
+                        id="input-interior"
+                        class="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        aria-label="EnvA-o al interior"
+                    >
+                    <span class="text-sm text-gray-700">Interior (puede aplicar transporte adicional)</span>
+                </label>
+                <p class="text-xs text-gray-500 mt-1">Aplica cargo adicional de transporte interior</p>
+                <p id="interior-note" class="text-xs text-yellow-700 mt-1 hidden">Interior puede variar segun courier.</p>
             </div>
-            
-            <!-- How it works accordion -->
+
+            <!-- Custom Rate (Optional) -->
+            <details class="mt-1">
+                <summary class="cursor-pointer text-sm text-blue-600 hover:text-blue-700 underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-1">
+                    Personalizar: conozco mi tarifa (USD/lb)
+                </summary>
+                <div class="mt-2">
+                    <label for="input-custom-rate" class="block text-sm font-medium text-gray-700 mb-1">
+                        Tarifa personalizada (USD/lb)
+                    </label>
+                    <input 
+                        type="number" 
+                        id="input-custom-rate" 
+                        step="0.01" 
+                        min="0"
+                        max="100"
+                        inputmode="decimal"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                        placeholder="2.50"
+                        aria-label="Tarifa personalizada por libra"
+                    >
+                    <label for="input-custom-weight-rule" class="block text-sm font-medium text-gray-700 mt-3 mb-1">
+                        Cobro por peso
+                    </label>
+                    <select
+                        id="input-custom-weight-rule"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                        aria-label="Regla de cobro por peso"
+                    >
+                        <option value="ceil">Redondea hacia arriba</option>
+                        <option value="exact">Exacto</option>
+                        <option value="min1">MA-nimo 1 lb</option>
+                    </select>
+                </div>
+            </details>
+        </div>
+    </details>
+</div>
+<!-- How it works accordion -->
             <details class="mt-6">
                 <summary class="cursor-pointer text-sm sm:text-base font-medium text-gray-700 hover:text-blue-600 transition-colors py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-2 -mx-2">
                     ¿Cómo funciona?
@@ -397,60 +395,26 @@
                     <p class="font-medium">Entradas de compra:</p>
                     <ul class="list-disc list-inside space-y-1 ml-2">
                         <li><strong>Valor FOB:</strong> Precio del producto sin envío ni impuestos. Determina el modo de cálculo.</li>
-                        <li><strong>Envío de tienda:</strong> Lo que cobró la tienda por shipping al comprar (opcional).</li>
-                        <li><strong>Impuesto en checkout:</strong> Impuesto cobrado por la tienda (ej: sales tax). No afecta los impuestos de importación.</li>
+                        <li><strong>Envío de tienda:</strong> Lo que cobró la tienda por shipping (opcional).</li>
+                        <li><strong>Impuesto en checkout:</strong> Sales tax u otro impuesto de la tienda. No cuenta como impuesto de importación RD.</li>
                     </ul>
-                    <p class="font-medium mt-3">Modo Menos de $200 USD (FOB):</p>
+                    <p class="font-medium mt-3">Modo ≤ US$200 (FOB):</p>
                     <ul class="list-disc list-inside space-y-1 ml-2">
-                        <li>Se aplica una tasa DGA fija de US$0.25 por cada kilo o fracción de kilo.</li>
-                        <li>El peso se redondea hacia arriba (ej: 0.1 kg = 1 kg, 1.5 kg = 2 kg).</li>
-                        <li>Ideal para envíos pequeños y personales.</li>
+                        <li>Se aplica tasa DGA fija de US$0.25 por kilo o fracción.</li>
+                        <li>El peso se redondea hacia arriba (0.1 kg = 1 kg).</li>
                     </ul>
-                    <p class="font-medium mt-3">Modo Más de $200 USD (FOB):</p>
+                    <p class="font-medium mt-3">Modo > US$200 (FOB):</p>
                     <ul class="list-disc list-inside space-y-1 ml-2">
-                        <li>Se calcula sobre el CIF (valor FOB + costo de flete courier), más arancel según el producto.</li>
-                        <li>Se aplica ITBIS del 18% sobre CIF + arancel.</li>
-                        <li>El arancel varía según la clasificación del producto.</li>
+                        <li>Se calcula sobre el CIF = FOB + flete courier.</li>
+                        <li>Se aplica arancel según clasificación + ITBIS 18% sobre CIF + arancel.</li>
                     </ul>
-                    <p class="font-medium mt-3">Pagado online vs. Impuestos:</p>
+                    <p class="font-medium mt-3">Pagado online vs. impuestos:</p>
                     <ul class="list-disc list-inside space-y-1 ml-2">
-                        <li>"Pagado online" = FOB + envío de tienda + impuesto en checkout (lo que pagaste a la tienda).</li>
-                        <li>Los impuestos de importación RD se calculan solo sobre el valor FOB y flete courier.</li>
+                        <li><strong>Pagado online</strong> = FOB + envío de tienda + impuesto en checkout.</li>
+                        <li><strong>Impuestos RD</strong> = arancel/ITBIS/DGA calculados localmente (salvo Import Fees).</li>
                     </ul>
                 </div>
             </details>
-
-            <!-- Share Button -->
-            <div class="mt-4 flex flex-col sm:flex-row gap-2">
-                <button 
-                    id="share-btn" 
-                    disabled
-                    class="w-full px-4 py-2 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition"
-                    aria-label="Compartir resultado del cálculo"
-                >
-                    Compartir resultado
-                </button>
-                <button 
-                    id="reset-btn"
-                    type="button"
-                    class="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition"
-                    aria-label="Limpiar todos los campos"
-                >
-                    Limpiar
-                </button>
-            </div>
-            <div class="mt-2 text-center">
-                <button
-                    id="feedback-link-primary"
-                    type="button"
-                    data-email-type="bug"
-                    class="inline-flex items-center px-4 py-2 text-xs text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                    aria-label="Reportar un problema"
-                >
-                    Reportar un problema
-                </button>
-            </div>
-            <p class="text-xs text-gray-500 mt-2">¿Algo no cuadra? Envíanos un mensaje (incluye el link si puedes).</p>
 
             <!-- Support Section (inside calculator card) -->
             <div id="support-section" class="mt-6 p-4 border border-gray-200 rounded-lg bg-gray-50 hidden">
@@ -477,7 +441,7 @@
             <div class="mt-4 p-4 border border-gray-200 rounded-lg bg-white shadow-sm relative">
                 <span class="absolute top-3 right-3 text-xs bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">Publicidad</span>
                 <h4 class="text-base font-semibold text-blue-800 mb-1">¿Tienes un courier o tienda?</h4>
-                <p class="text-sm text-gray-600 mb-3">Promociona tu servicio aquí. Espacios limitados.</p>
+                <p class="text-sm text-gray-600 mb-3">Espacios publicitarios para couriers o tiendas. No es un directorio ni una recomendación.</p>
                 <a 
                     href="#"
                     data-email-type="ads"
@@ -489,7 +453,7 @@
                     </svg>
                     Solicitar media kit
                 </a>
-                <p class="text-xs text-gray-500 mt-2">Publicidad — no es recomendación.</p>
+                <p class="text-xs text-gray-500 mt-2">Publicidad — servicio externo a ImpuestosRD.</p>
             </div>
         </div>
 
@@ -502,61 +466,36 @@
             <div id="sources-list" class="space-y-3 mb-6">
                 <!-- Sources will be rendered here -->
             </div>
-            
-            <div class="border-t pt-4">
-                <h3 class="font-semibold mb-2">Disclaimer</h3>
-                <p class="text-sm text-gray-600">
-                    Esta herramienta es solo para fines informativos. Los resultados son aproximados y pueden variar según las regulaciones actuales.
-                    Siempre consulta con la Dirección General de Aduanas (DGA) y/o tu courier para información precisa y actualizada.
-                </p>
-            </div>
         </div>
     </div>
 
     <!-- Footer -->
-    <footer class="bg-gray-100 border-t border-gray-200 py-6 mt-8">
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 text-center">
-            <p class="text-sm text-gray-600">
-                ¿Te fue útil? 
-                <span id="footer-support-wrap" class="hidden">
-                    <a 
-                        id="footer-support-link"
-                        href="#"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="text-green-600 hover:text-green-700 underline font-medium"
-                        aria-label="Apoyar ImpuestosRD"
-                    >
-                        Apoya ImpuestosRD
-                    </a>
-                    <span class="text-gray-400 mx-1">·</span>
-                </span>
-                <a
-                    id="footer-feedback-link"
-                    href="#"
-                    data-email-type="bug"
-                    class="text-gray-600 hover:text-gray-800 underline"
-                    aria-label="Reportar un problema"
-                >
-                    Reportar un problema
-                </a>
-            </p>
-            <p class="text-xs text-gray-500 mt-2">¿Algo no cuadra? Envíanos un mensaje (incluye el link si puedes).</p>
-        </div>
-    </footer>
+<footer class="bg-gray-100 border-t border-gray-200 py-6 mt-8">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+        <p class="text-sm text-gray-600">
+            Copyright 2026 ImpuestosRD
+            <span class="text-gray-400 mx-1">|</span>
+            <a
+                id="footer-feedback-link"
+                href="#"
+                data-email-type="bug"
+                class="text-gray-600 hover:text-gray-800 underline"
+                aria-label="Reportar un problema"
+            >
+                Reportar un problema
+            </a>
+        </p>
+        <p class="text-xs text-gray-500 mt-2">Algo no cuadra? Envianos un mensaje (incluye el link si puedes).</p>
+    </div>
+</footer>
 
-    <div id="share-toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-sm px-3 py-2 rounded-md shadow-lg hidden" aria-live="polite"></div>
-
-    <!-- Mobile sticky bar -->
+        <!-- Mobile sticky bar -->
     <div id="sticky-total-bar" class="fixed bottom-0 inset-x-0 sm:hidden bg-white border-t border-gray-200 shadow-lg px-4 py-3 hidden">
         <div class="flex items-center justify-between gap-3">
             <div>
                 <div class="text-xs text-gray-500">Total retiro</div>
                 <div id="sticky-total-value" class="text-lg font-semibold text-blue-600">RD$ 0.00</div>
             </div>
-            <button id="sticky-share-btn" type="button" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                Compartir
-            </button>
         </div>
     </div>
 

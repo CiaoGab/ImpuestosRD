@@ -1,0 +1,10 @@
+{
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "impuestos-rd.vercel.app" }],
+      "destination": "https://impuestosdr.com/$1",
+      "permanent": true
+    }
+  ]
+}

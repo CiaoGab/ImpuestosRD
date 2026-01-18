@@ -93,9 +93,6 @@ const elements = {
     inputSelectivo: document.getElementById('input-selectivo'),
     inputImportFeesPaid: document.getElementById('input-import-fees-paid'),
     results: document.getElementById('results'),
-    shareBtn: document.getElementById('share-btn'),
-    resetBtn: document.getElementById('reset-btn'),
-    shareToast: document.getElementById('share-toast'),
     feedbackLinkPrimary: document.getElementById('feedback-link-primary'),
     supportSection: document.getElementById('support-section'),
     supportBtnPrimary: document.getElementById('support-btn-primary'),
@@ -104,7 +101,6 @@ const elements = {
     footerFeedbackLink: document.getElementById('footer-feedback-link'),
     stickyTotalBar: document.getElementById('sticky-total-bar'),
     stickyTotalValue: document.getElementById('sticky-total-value'),
-    stickyShareBtn: document.getElementById('sticky-share-btn'),
     emailModal: document.getElementById('email-modal'),
     emailModalTitle: document.getElementById('email-modal-title'),
     emailClose: document.getElementById('email-close'),
@@ -122,7 +118,6 @@ const elements = {
     inputCustomRate: document.getElementById('input-custom-rate'),
     inputCustomWeightRule: document.getElementById('input-custom-weight-rule'),
     interiorNote: document.getElementById('interior-note'),
-    courierResults: document.getElementById('courier-results')
 };
 
 // Input bounds constants
@@ -193,192 +188,6 @@ function getCustomBilledWeight(weightLb, rule) {
         case 'ceil':
         default:
             return Math.ceil(weightLb);
-    }
-}
-
-// Check if share button should be enabled
-function shouldEnableShare() {
-    if (state.mode === 'under200') {
-        const valueUSD = getInputValue(elements.inputValue, INPUT_BOUNDS.value);
-        const weight = getInputValue(elements.inputWeight, INPUT_BOUNDS.weight);
-        return valueUSD > 0 && weight > 0;
-    } else {
-        const valueUSD = getInputValue(elements.inputValue, INPUT_BOUNDS.value);
-        return valueUSD > 0;
-    }
-}
-
-// Update share button state
-function updateShareButton() {
-    const enabled = shouldEnableShare();
-    if (enabled) {
-        elements.shareBtn.disabled = false;
-        elements.shareBtn.className = 'w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition';
-    } else {
-        elements.shareBtn.disabled = true;
-        elements.shareBtn.className = 'w-full px-4 py-2 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition';
-    }
-
-    if (elements.stickyShareBtn) {
-        elements.stickyShareBtn.disabled = !enabled;
-        elements.stickyShareBtn.className = enabled
-            ? 'px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
-            : 'px-4 py-2 text-sm bg-gray-200 text-gray-500 rounded-md cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2';
-    }
-}
-
-let shareToastTimeout;
-function showShareToast(message) {
-    if (!elements.shareToast) return;
-    elements.shareToast.textContent = message;
-    elements.shareToast.classList.remove('hidden');
-    clearTimeout(shareToastTimeout);
-    shareToastTimeout = setTimeout(() => {
-        elements.shareToast.classList.add('hidden');
-    }, 2000);
-}
-
-function setTariffCategoryNote(state) {
-    if (!elements.tariffCategoryNote) return;
-
-    if (state === 'suggested') {
-        elements.tariffCategoryNote.textContent = 'Sugerido por categoria (editable)';
-        elements.tariffCategoryNote.classList.remove('hidden');
-        return;
-    }
-    if (state === 'modified') {
-        elements.tariffCategoryNote.textContent = 'Modificado manualmente';
-        elements.tariffCategoryNote.classList.remove('hidden');
-        return;
-    }
-
-    elements.tariffCategoryNote.classList.add('hidden');
-}
-
-// Build shareable URL with query params
-function buildShareUrl() {
-    const params = new URLSearchParams();
-    
-    if (state.manualModeOverride) {
-        params.set('mode', state.mode);
-        params.set('override', '1');
-    }
-    
-    // Always include unit/weight so courier estimate can be restored
-    params.set('unit', state.unit);
-    const weight = getInputValue(elements.inputWeight, INPUT_BOUNDS.weight);
-    if (weight > 0) {
-        params.set('weight', weight.toString());
-    }
-    
-    const valueUSD = getInputValue(elements.inputValue);
-    if (valueUSD > 0) {
-        params.set('value', valueUSD.toString());
-    }
-    
-    // Store shipping and checkout tax (always include if > 0)
-    if (elements.inputStoreShipping) {
-        const storeShipping = getInputValue(elements.inputStoreShipping, INPUT_BOUNDS.storeShipping);
-        if (storeShipping > 0) {
-            params.set('storeShipping', storeShipping.toString());
-        }
-    }
-    if (elements.inputCheckoutTax) {
-        const checkoutTax = getInputValue(elements.inputCheckoutTax, INPUT_BOUNDS.checkoutTax);
-        if (checkoutTax > 0) {
-            params.set('checkoutTax', checkoutTax.toString());
-        }
-    }
-    
-    if (state.mode === 'over200') {
-        const shippingUSD = getInputValue(elements.inputShipping);
-        const tariffPct = getInputValue(elements.inputTariff);
-        if (shippingUSD > 0) {
-            params.set('shipping', shippingUSD.toString());
-        }
-        if (tariffPct > 0) {
-            params.set('tariff', tariffPct.toString());
-        }
-        if (elements.tariffCategory && elements.tariffCategory.value !== '') {
-            const categoryKey = elements.tariffCategory.value;
-            if (Object.prototype.hasOwnProperty.call(TARIFF_PRESETS, categoryKey)) {
-                params.set('tariffCategory', categoryKey);
-            }
-        }
-        const selectivoPct = elements.inputSelectivo
-            ? getInputValue(elements.inputSelectivo, INPUT_BOUNDS.selectivo)
-            : 0;
-        if (selectivoPct > 0) {
-            params.set('selectivo', selectivoPct.toString());
-        }
-        if (state.importFeesPaid) {
-            params.set('importFeesPaid', '1');
-        }
-    }
-    
-    // Courier market estimate params
-    const fxRate = getInputValue(elements.inputFxRate, { min: 0, max: 1000 });
-    if (fxRate > 0) {
-        params.set('fx', fxRate.toString());
-    }
-    if (state.isInterior) {
-        params.set('interior', '1');
-    }
-    if (elements.inputCustomRate) {
-        const customRate = parseFloat(elements.inputCustomRate.value);
-        if (!isNaN(customRate) && customRate > 0) {
-            params.set('customRate', customRate.toString());
-        }
-    }
-    if (state.customWeightRule) {
-        params.set('customWeightRule', state.customWeightRule);
-    }
-    
-    return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
-}
-
-// Copy to clipboard and show success message
-async function copyShareUrl() {
-    const url = buildShareUrl();
-    
-    try {
-        await navigator.clipboard.writeText(url);
-        
-        // Show success message
-        const originalText = elements.shareBtn.textContent;
-        elements.shareBtn.textContent = 'Link copiado ✅';
-        elements.shareBtn.className = 'w-full px-4 py-2 bg-green-600 text-white rounded-md transition';
-        showShareToast('Link copiado ✅');
-        
-        // Reset after 2 seconds
-        setTimeout(() => {
-            elements.shareBtn.textContent = originalText;
-            updateShareButton();
-        }, 2000);
-    } catch (err) {
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = url;
-        textArea.style.position = 'fixed';
-        textArea.style.opacity = '0';
-        document.body.appendChild(textArea);
-        textArea.select();
-        
-        try {
-            document.execCommand('copy');
-            const originalText = elements.shareBtn.textContent;
-            elements.shareBtn.textContent = 'Link copiado ✅';
-            elements.shareBtn.className = 'w-full px-4 py-2 bg-green-600 text-white rounded-md transition';
-        showShareToast('Link copiado ✅');
-            setTimeout(() => {
-                elements.shareBtn.textContent = originalText;
-                updateShareButton();
-            }, 2000);
-        } catch (fallbackErr) {
-            console.error('Failed to copy:', fallbackErr);
-        }
-        
-        document.body.removeChild(textArea);
     }
 }
 
@@ -592,10 +401,10 @@ function calculateAndRender() {
                 });
             } catch (err) {
                 console.error('Calculation error:', err);
-                renderResults(elements.results, { 
-                    emptyState: 'Error al calcular. Por favor verifica los valores ingresados.' 
+                renderResults(elements.results, {
+                    emptyState: 'Error al calcular. Por favor verifica los valores ingresados.'
                 });
-                updateShareButton();
+                updateStickyBar(null);
                 return;
             }
         }
@@ -632,19 +441,21 @@ function calculateAndRender() {
                 });
             } catch (err) {
                 console.error('Calculation error:', err);
-                renderResults(elements.results, { 
-                    emptyState: 'Error al calcular. Por favor verifica los valores ingresados.' 
+                renderResults(elements.results, {
+                    emptyState: 'Error al calcular. Por favor verifica los valores ingresados.'
                 });
-                updateShareButton();
+                updateStickyBar(null);
                 return;
             }
         }
     }
     
     // Render results
-    // Always recalc courier once per change
-    const courierTypicalDOP = elements.courierResults ? calculateAndRenderCourier() : null;
-    
+    const courierEstimate = calculateAndRenderCourier();
+    const courierTypicalDOP = courierEstimate && typeof courierEstimate.typicalDOP === 'number'
+        ? courierEstimate.typicalDOP
+        : null;
+
     if (!hasKeyInput) {
         if (state.mode === 'under200') {
             elements.results.textContent = '';
@@ -658,25 +469,25 @@ function calculateAndRender() {
 
             const message = document.createElement('p');
             message.className = 'text-sm text-gray-500';
-            message.textContent = 'Necesitamos el valor del producto (USD) y el peso para estimar la tasa DGA en envíos menores a US$200.';
+            message.textContent = 'Necesitamos el valor del producto (USD) y el peso para estimar la tasa DGA en envios menores a US$200.';
             container.appendChild(message);
 
             elements.results.appendChild(container);
         } else {
-            renderResults(elements.results, { emptyState: 'Por favor ingresa el valor del producto para calcular los impuestos.' });
+                renderResults(elements.results, { emptyState: 'Por favor ingresa el valor del producto para calcular los impuestos.' });
         }
-        updateShareButton();
+        updateStickyBar(null);
         return;
     }
-    
+
     if (!result) {
-        renderResults(elements.results, { 
-            emptyState: 'Los resultados aparecerán aquí' 
+        renderResults(elements.results, {
+            emptyState: 'Los resultados apareceran aqui'
         });
-        updateShareButton();
+        updateStickyBar(null);
         return;
     }
-    
+
     const storeShippingUSD = elements.inputStoreShipping ? getInputValue(elements.inputStoreShipping, INPUT_BOUNDS.storeShipping) : 0;
     const checkoutTaxUSD = elements.inputCheckoutTax ? getInputValue(elements.inputCheckoutTax, INPUT_BOUNDS.checkoutTax) : 0;
     const paidOnlineUSD = valueUSD + storeShippingUSD + checkoutTaxUSD;
@@ -697,18 +508,24 @@ function calculateAndRender() {
         const cif = valueUSD + shippingUSD;
         lineItems.push(
             { label: 'Valor del producto', valueUSD: valueUSD },
-            { label: 'Costo de envío', valueUSD: shippingUSD },
-            { label: 'CIF (Valor + Envío)', valueUSD: cif }
+            { label: 'Costo de envio', valueUSD: shippingUSD },
+            { label: 'CIF (Valor + Envio)', valueUSD: cif }
         );
         result.taxLineItems.forEach(item => lineItems.push(item));
     }
-    
+
+    const localTotalDOP = fxRate > 0 && (taxDueUSD > 0 || courierTypicalDOP > 0)
+        ? taxDueUSD * fxRate + (courierTypicalDOP || 0)
+        : null;
+
+    updateStickyBar(localTotalDOP);
+
     // Render with results
     const importFeesNote = state.mode === 'over200' && state.importFeesPaid
         ? 'Nota: marcaste Import Fees, por eso los impuestos no se suman al total local.'
         : undefined;
 
-    renderResults(elements.results, {
+                renderResults(elements.results, {
         lineItems,
         total: result.grandTotalUSD,
         totalLabel: 'Total (valor + impuestos)',
@@ -719,102 +536,59 @@ function calculateAndRender() {
             taxTotalUSD,
             taxDueUSD,
             fxRate,
-            courierTypicalDOP: courierTypicalDOP ?? state.courierTypicalDOP,
-            importFeesPaid: state.importFeesPaid
-        }
+            courierTypicalDOP,
+            importFeesPaid: state.importFeesPaid,
+            localTotalDOP
+        },
+        courier: courierEstimate
     });
-    
-    updateShareButton();
 }
 
 // Calculate and render courier fees (market estimate)
 function calculateAndRenderCourier() {
-    if (!elements.courierResults) {
-        return null;
-    }
-    
     const weight = getInputValue(elements.inputWeight, INPUT_BOUNDS.weight);
     const valueUSD = getInputValue(elements.inputValue, INPUT_BOUNDS.value);
     const fxRate = getInputValue(elements.inputFxRate, { min: 0, max: 1000 });
-    const importFeesPaid = state.importFeesPaid;
-    let typicalDOPValue = null;
-    
-    // Convert weight to pounds
+
     const weightLb = toLb(weight, state.unit);
-    
-    // Get tax result for combining
-    let taxResult = null;
-    if (state.mode === 'under200') {
-        if (weight > 0) {
-            try {
-                taxResult = calcUnder200({
-                    valueUSD,
-                    weight,
-                    unit: state.unit
-                });
-            } catch (err) {
-                console.error('Tax calculation error:', err);
-            }
-        }
-    } else {
-        if (valueUSD > 0) {
-            const shippingUSD = getInputValue(elements.inputShipping, INPUT_BOUNDS.shipping);
-            const tariffPct = getInputValue(elements.inputTariff, INPUT_BOUNDS.tariff);
-            const selectivoPct = elements.inputSelectivo
-                ? getInputValue(elements.inputSelectivo, INPUT_BOUNDS.selectivo)
-                : 0;
-            try {
-                taxResult = calcOver200({
-                    valueUSD,
-                    shippingUSD,
-                    tariffPct,
-                    selectivoPct,
-                    importFeesPaid
-                });
-            } catch (err) {
-                console.error('Tax calculation error:', err);
-            }
-        }
-    }
-    
-    // Check if we have required inputs
+    const estimate = {
+        hasWeight: weightLb > 0,
+        hasEstimate: false,
+        fxRate,
+        isInterior: state.isInterior,
+        isCustom: false,
+        billedWeight: null,
+        minDOP: null,
+        maxDOP: null,
+        typicalDOP: null
+    };
+
     if (weightLb <= 0) {
         state.courierTypicalDOP = null;
-        elements.courierResults.classList.remove('hidden');
-        elements.courierResults.textContent = '';
-        const empty = document.createElement('p');
-        empty.className = 'text-sm text-gray-500 text-center';
-        empty.textContent = 'Ingresa el peso para estimar los gastos de courier.';
-        elements.courierResults.appendChild(empty);
-        updateStickyBar(null);
-        return null;
+        return estimate;
     }
-    
-    // Check if custom rate is provided
+
     const customRate = elements.inputCustomRate ? parseFloat(elements.inputCustomRate.value) : null;
     const customRule = state.customWeightRule || 'ceil';
     if (!isNaN(customRate) && customRate > 0) {
-        // Use custom rate
         const billedWeight = getCustomBilledWeight(weightLb, customRule);
         const customTotalUSD = billedWeight * customRate;
-        const customTotalDOP = fxRate > 0 ? customTotalUSD * fxRate : 0;
-        typicalDOPValue = customTotalDOP;
-        state.courierTypicalDOP = typicalDOPValue;
-        
-        renderMarketEstimateResults({
-            typicalDOP: customTotalDOP,
+        const customTotalDOP = fxRate > 0 ? customTotalUSD * fxRate : null;
+        state.courierTypicalDOP = customTotalDOP || null;
+        return {
+            ...estimate,
+            hasEstimate: true,
+            isCustom: true,
+            billedWeight,
             minDOP: customTotalDOP,
             maxDOP: customTotalDOP,
-            isCustom: true,
-            billedWeight
-        }, taxResult, fxRate, importFeesPaid);
-        return typicalDOPValue;
+            typicalDOP: customTotalDOP
+        };
     }
-    
-    // Calculate market estimate: loop through all non-manual couriers
+
     const courierTotalsUSD = [];
     const courierIds = Object.keys(COURIERS_DO).filter(id => id !== 'manual');
-    
+
     for (const courierId of courierIds) {
         try {
             const courierResult = calcCourierFees({
@@ -822,9 +596,9 @@ function calculateAndRenderCourier() {
                 weightLb,
                 valueUSD,
                 isInterior: state.isInterior,
-                fxRate: 0 // Don't convert to DOP yet, we'll do it after aggregation
+                fxRate: 0
             });
-            
+
             if (!courierResult.error && courierResult.subtotalUSD > 0) {
                 courierTotalsUSD.push(courierResult.subtotalUSD);
             }
@@ -832,20 +606,16 @@ function calculateAndRenderCourier() {
             console.error(`Error calculating courier ${courierId}:`, err);
         }
     }
-    
+
     if (courierTotalsUSD.length === 0) {
         state.courierTypicalDOP = null;
-        elements.courierResults.classList.add('hidden');
-        updateStickyBar(null);
-        return null;
+        return estimate;
     }
-    
-    // Calculate min, median (typical), max
+
     courierTotalsUSD.sort((a, b) => a - b);
     const minUSD = courierTotalsUSD[0];
     const maxUSD = courierTotalsUSD[courierTotalsUSD.length - 1];
-    
-    // Calculate median (handles 1, 2, or more values)
+
     let medianUSD;
     if (courierTotalsUSD.length === 1) {
         medianUSD = courierTotalsUSD[0];
@@ -857,22 +627,19 @@ function calculateAndRenderCourier() {
     } else {
         medianUSD = courierTotalsUSD[Math.floor(courierTotalsUSD.length / 2)];
     }
-    
-    // Convert to DOP
-    const minDOP = fxRate > 0 ? minUSD * fxRate : 0;
-    const typicalDOP = fxRate > 0 ? medianUSD * fxRate : 0;
-    const maxDOP = fxRate > 0 ? maxUSD * fxRate : 0;
-    typicalDOPValue = typicalDOP;
-    state.courierTypicalDOP = typicalDOPValue;
-    
-    // Render market estimate results
-    renderMarketEstimateResults({
-        typicalDOP,
+
+    const minDOP = fxRate > 0 ? minUSD * fxRate : null;
+    const typicalDOP = fxRate > 0 ? medianUSD * fxRate : null;
+    const maxDOP = fxRate > 0 ? maxUSD * fxRate : null;
+    state.courierTypicalDOP = typicalDOP || null;
+
+    return {
+        ...estimate,
+        hasEstimate: true,
         minDOP,
         maxDOP,
-        isCustom: false
-    }, taxResult, fxRate, state.importFeesPaid);
-    return typicalDOPValue;
+        typicalDOP
+    };
 }
 
 function updateStickyBar(localTotalDOP) {
@@ -887,204 +654,6 @@ function updateStickyBar(localTotalDOP) {
 
     elements.stickyTotalValue.textContent = formatDOP(localTotalDOP);
     elements.stickyTotalBar.classList.remove('hidden');
-}
-
-// Render market estimate results
-function renderMarketEstimateResults({ typicalDOP, minDOP, maxDOP, isCustom, billedWeight }, taxResult, fxRate, importFeesPaid = false) {
-    if (!elements.courierResults) return;
-    
-    elements.courierResults.classList.remove('hidden');
-    elements.courierResults.textContent = '';
-    
-    const container = document.createElement('div');
-    container.className = 'space-y-4';
-
-    // Local total (DOP) - taxes + courier fees
-    if (fxRate > 0 && (taxResult || typicalDOP > 0)) {
-        const taxUSD = taxResult ? taxResult.taxTotalUSD : 0;
-        const taxDueUSD = taxResult ? (taxResult.taxDueUSD ?? taxUSD) : 0;
-        const taxDueDOP = taxDueUSD * fxRate;
-        const localTotalDOP = taxDueDOP + typicalDOP;
-
-        if (localTotalDOP > 0) {
-            const totalDiv = document.createElement('div');
-            totalDiv.className = 'pb-3 border-b border-gray-200';
-
-            const totalLabel = document.createElement('div');
-            totalLabel.className = 'text-xs text-gray-500';
-            totalLabel.textContent = 'Total a pagar localmente (DOP)';
-            totalDiv.appendChild(totalLabel);
-
-            const totalValue = document.createElement('div');
-            totalValue.className = 'text-2xl sm:text-3xl font-bold text-blue-600';
-            totalValue.textContent = formatDOP(localTotalDOP);
-            totalDiv.appendChild(totalValue);
-
-            const breakdown = document.createElement('div');
-            breakdown.className = 'mt-2 text-xs text-gray-600 grid grid-cols-1 sm:grid-cols-2 gap-2';
-
-            const courierLine = document.createElement('div');
-            courierLine.textContent = `Courier: ${formatDOP(typicalDOP)}`;
-            breakdown.appendChild(courierLine);
-
-            const taxLine = document.createElement('div');
-            if (importFeesPaid && taxUSD > 0 && taxDueUSD === 0) {
-                taxLine.textContent = `Impuestos (ya pagados): ${formatDOP(taxUSD * fxRate)}`;
-                breakdown.appendChild(taxLine);
-
-                const taxNote = document.createElement('div');
-                taxNote.className = 'text-xs text-gray-500 sm:col-span-2';
-                taxNote.textContent = 'Nota: si tu compra ya incluyo "Import Fees", no se suman al total local.';
-                breakdown.appendChild(taxNote);
-            } else {
-                taxLine.textContent = `Impuestos de importación: ${formatDOP(taxDueDOP)}`;
-                breakdown.appendChild(taxLine);
-            }
-
-            totalDiv.appendChild(breakdown);
-            container.appendChild(totalDiv);
-
-            updateStickyBar(localTotalDOP);
-        } else {
-            updateStickyBar(null);
-        }
-    } else {
-        updateStickyBar(null);
-    }
-    
-    // Market estimate section
-    const estimateDiv = document.createElement('div');
-    estimateDiv.className = 'border-b border-gray-300 pb-3';
-    
-    const label = document.createElement('div');
-    label.className = 'text-sm font-medium text-gray-600 mb-2';
-    label.textContent = 'Gastos de courier (estimación de mercado)';
-    estimateDiv.appendChild(label);
-    
-    // Typical estimate
-    const typicalDiv = document.createElement('div');
-    typicalDiv.className = 'text-xl font-bold text-blue-600 mb-2';
-    typicalDiv.textContent = formatDOP(typicalDOP);
-    estimateDiv.appendChild(typicalDiv);
-    
-    const scopeLine = document.createElement('div');
-    scopeLine.className = 'text-xs text-gray-600';
-    scopeLine.textContent = 'Incluye flete estimado por libra. Cargos adicionales pueden variar.';
-    estimateDiv.appendChild(scopeLine);
-
-    const includeList = document.createElement('div');
-    includeList.className = 'mt-2 text-xs text-gray-700 space-y-1';
-    const includeLine = document.createElement('div');
-    includeLine.textContent = '✅ Incluye: flete estimado por libra.';
-    const excludeLine = document.createElement('div');
-    excludeLine.textContent = '❌ No incluye: peso volumétrico, manejo especial, seguros, airport fee.';
-    includeList.appendChild(includeLine);
-    includeList.appendChild(excludeLine);
-    if (state.isInterior) {
-        const interiorLine = document.createElement('div');
-        interiorLine.className = 'text-yellow-700';
-        interiorLine.textContent = 'Interior puede aumentar el costo según zona.';
-        includeList.appendChild(interiorLine);
-    }
-    estimateDiv.appendChild(includeList);
-    
-    // Range (only show if not custom and there's variation)
-    if (!isCustom && minDOP !== maxDOP && fxRate > 0) {
-        const rangeDiv = document.createElement('div');
-        rangeDiv.className = 'text-xs text-gray-500';
-        rangeDiv.textContent = `Rango: ${formatDOP(minDOP)} – ${formatDOP(maxDOP)}`;
-        estimateDiv.appendChild(rangeDiv);
-    }
-    
-    container.appendChild(estimateDiv);
-    
-    // "How this estimate is calculated" expandable section
-    const detailsDiv = document.createElement('details');
-    detailsDiv.className = 'mt-2';
-    
-    const summary = document.createElement('summary');
-    summary.className = 'cursor-pointer text-sm text-blue-600 hover:text-blue-700 underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-1';
-    summary.textContent = '¿Cómo se calcula esta estimación?';
-    detailsDiv.appendChild(summary);
-    
-    const explanationDiv = document.createElement('div');
-    explanationDiv.className = 'mt-2 p-3 bg-gray-50 rounded text-xs text-gray-700 space-y-1';
-    
-    if (isCustom) {
-        const p1 = document.createElement('p');
-        p1.textContent = '• Se usa tu tarifa personalizada multiplicada por el peso facturable.';
-        explanationDiv.appendChild(p1);
-        if (billedWeight !== undefined) {
-            const p2 = document.createElement('p');
-            p2.textContent = `• Peso facturable aplicado: ${billedWeight.toFixed(2)} lb.`;
-            explanationDiv.appendChild(p2);
-        }
-    } else {
-        const p1 = document.createElement('p');
-        p1.textContent = '• Se calculan las tarifas de múltiples couriers del mercado.';
-        explanationDiv.appendChild(p1);
-        const p2 = document.createElement('p');
-        p2.textContent = '• Se muestra la mediana (típica) y el rango mínimo-máximo.';
-        explanationDiv.appendChild(p2);
-        const p3 = document.createElement('p');
-        p3.textContent = '• Para algunas tarifas públicas, interior puede agregar transporte.';
-        explanationDiv.appendChild(p3);
-    }
-    
-    detailsDiv.appendChild(explanationDiv);
-    container.appendChild(detailsDiv);
-    
-    // Taxes section
-    if (taxResult && taxResult.taxTotalUSD > 0) {
-        const taxesDiv = document.createElement('div');
-        taxesDiv.className = 'border-b border-gray-300 pb-3';
-        
-        const taxLabel = document.createElement('div');
-        taxLabel.className = 'text-sm font-medium text-gray-600 mb-2';
-        taxLabel.textContent = 'Impuestos';
-        taxesDiv.appendChild(taxLabel);
-
-        const taxHelper = document.createElement('div');
-        taxHelper.className = 'text-xs text-gray-500 mb-2';
-        taxHelper.textContent = 'Impuestos de importación (Aduanas/DGII). No incluye ITBIS del courier.';
-        taxesDiv.appendChild(taxHelper);
-        
-        const taxUSD = document.createElement('div');
-        taxUSD.className = 'text-base font-semibold text-gray-900 mb-1';
-        taxUSD.textContent = `USD: ${formatUSD(taxResult.taxTotalUSD)}`;
-        taxesDiv.appendChild(taxUSD);
-        
-        if (fxRate > 0) {
-            const taxDueUSD = taxResult.taxDueUSD ?? taxResult.taxTotalUSD;
-            const taxDOP = document.createElement('div');
-            taxDOP.className = 'text-base font-semibold text-blue-600';
-            taxDOP.textContent = `DOP: ${formatDOP(taxResult.taxTotalUSD * fxRate)}`;
-            taxesDiv.appendChild(taxDOP);
-
-            if (importFeesPaid && taxDueUSD === 0) {
-                const paidNote = document.createElement('div');
-                paidNote.className = 'text-xs text-gray-500 mt-1';
-                paidNote.textContent = 'Marcaste Import Fees: este monto se muestra solo como referencia.';
-                taxesDiv.appendChild(paidNote);
-            }
-        }
-        
-        container.appendChild(taxesDiv);
-    }
-    
-    // Trust disclaimer
-    const trustDisclaimer = document.createElement('div');
-    trustDisclaimer.className = 'mt-3 text-xs text-gray-500';
-    trustDisclaimer.textContent = 'Estimación basada en promedios; tu courier puede cobrar distinto.';
-    container.appendChild(trustDisclaimer);
-    
-    // General disclaimer
-    const generalDisclaimer = document.createElement('div');
-    generalDisclaimer.className = 'mt-2 text-xs text-gray-600 italic';
-    generalDisclaimer.textContent = 'No incluye peso volumétrico ni cargos especiales. Puede variar por libras volumétricas, manejo, combustible, seguro, airport fee y políticas del courier.';
-    container.appendChild(generalDisclaimer);
-    
-    elements.courierResults.appendChild(container);
 }
 
 // Render function to update UI based on state
@@ -1137,7 +706,6 @@ function render() {
     
     // Recalculate after UI update
     calculateAndRender();
-    updateShareButton();
 }
 
 // Event listeners
@@ -1200,6 +768,23 @@ function updatePaidOnlineSummary() {
     } else {
         elements.paidOnlineSummary.classList.add('hidden');
     }
+}
+
+function setTariffCategoryNote(state) {
+    if (!elements.tariffCategoryNote) return;
+
+    if (state === 'suggested') {
+        elements.tariffCategoryNote.textContent = 'Sugerido por categoria (editable)';
+        elements.tariffCategoryNote.classList.remove('hidden');
+        return;
+    }
+    if (state === 'modified') {
+        elements.tariffCategoryNote.textContent = 'Modificado manualmente';
+        elements.tariffCategoryNote.classList.remove('hidden');
+        return;
+    }
+
+    elements.tariffCategoryNote.classList.add('hidden');
 }
 
 function updateTariffCategoryNoteFromInput() {
@@ -1328,84 +913,6 @@ if (elements.inputImportFeesPaid) {
     elements.inputImportFeesPaid.addEventListener('change', (e) => {
         state.importFeesPaid = e.target.checked;
         calculateAndRender();
-    });
-}
-
-// Share button event listener
-elements.shareBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    if (!elements.shareBtn.disabled) {
-        copyShareUrl();
-    }
-});
-
-if (elements.stickyShareBtn) {
-    elements.stickyShareBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (!elements.stickyShareBtn.disabled) {
-            copyShareUrl();
-        }
-    });
-}
-
-function resetCalculator() {
-    // Reset state
-    state.manualModeOverride = false;
-    state.mode = 'under200';
-    state.unit = 'lb';
-    state.fxRate = 58.50;
-    state.isInterior = false;
-    state.customRate = null;
-    state.customWeightRule = 'ceil';
-    state.importFeesPaid = false;
-    state.courierTypicalDOP = null;
-
-    // Reset inputs
-    elements.inputValue.value = '';
-    if (elements.inputStoreShipping) elements.inputStoreShipping.value = '';
-    if (elements.inputCheckoutTax) elements.inputCheckoutTax.value = '';
-    elements.inputWeight.value = '';
-    elements.inputShipping.value = '';
-    elements.inputTariff.value = '';
-    if (elements.tariffCategory) elements.tariffCategory.value = '';
-    setTariffCategoryNote();
-    if (elements.inputSelectivo) elements.inputSelectivo.value = '';
-    if (elements.inputFxRate) elements.inputFxRate.value = state.fxRate;
-    if (elements.inputInterior) {
-        elements.inputInterior.checked = false;
-        if (elements.interiorNote) elements.interiorNote.classList.add('hidden');
-    }
-    if (elements.inputCustomRate) elements.inputCustomRate.value = '';
-    if (elements.inputCustomWeightRule) elements.inputCustomWeightRule.value = state.customWeightRule;
-    if (elements.inputImportFeesPaid) elements.inputImportFeesPaid.checked = false;
-
-    // Reset summaries and UI
-    if (elements.paidOnlineSummary) elements.paidOnlineSummary.classList.add('hidden');
-    updateStickyBar(null);
-    if (elements.courierResults) {
-        elements.courierResults.classList.add('hidden');
-        elements.courierResults.textContent = '';
-    }
-    if (elements.results) {
-        elements.results.textContent = '';
-        const p = document.createElement('p');
-        p.className = 'text-gray-500 text-center';
-        p.textContent = 'Los resultados aparecerán aquí';
-        elements.results.appendChild(p);
-    }
-
-    // Clear URL params
-    if (window.history && window.history.replaceState) {
-        window.history.replaceState({}, '', `${window.location.origin}${window.location.pathname}`);
-    }
-
-    render();
-}
-
-if (elements.resetBtn) {
-    elements.resetBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        resetCalculator();
     });
 }
 
@@ -1614,30 +1121,21 @@ function renderSources() {
 // Event listeners for courier section
 
 if (elements.inputFxRate) {
-    // Set default FX rate
     elements.inputFxRate.value = state.fxRate;
-    
-    let courierTimeout;
-    function debouncedCourierCalculate() {
-        clearTimeout(courierTimeout);
-        courierTimeout = setTimeout(() => {
-            calculateAndRenderCourier();
-        }, 150);
-    }
-    
+
     elements.inputFxRate.addEventListener('input', () => {
         const fxRate = parseFloat(elements.inputFxRate.value);
         if (!isNaN(fxRate) && fxRate > 0) {
             state.fxRate = Math.max(0, Math.min(1000, fxRate));
-            debouncedCourierCalculate();
+            debouncedCalculate();
         }
     });
-    
+
     elements.inputFxRate.addEventListener('change', () => {
         const fxRate = parseFloat(elements.inputFxRate.value);
         if (!isNaN(fxRate) && fxRate > 0) {
             state.fxRate = Math.max(0, Math.min(1000, fxRate));
-            calculateAndRenderCourier();
+            calculateAndRender();
         }
     });
 }
@@ -1648,7 +1146,7 @@ if (elements.inputInterior) {
         if (elements.interiorNote) {
             elements.interiorNote.classList.toggle('hidden', !state.isInterior);
         }
-        calculateAndRenderCourier();
+        calculateAndRender();
     });
 }
 
@@ -1657,10 +1155,10 @@ if (elements.inputCustomRate) {
     function debouncedCustomRate() {
         clearTimeout(customRateTimeout);
         customRateTimeout = setTimeout(() => {
-            calculateAndRenderCourier();
+            calculateAndRender();
         }, 150);
     }
-    
+
     elements.inputCustomRate.addEventListener('input', () => {
         const customRate = parseFloat(elements.inputCustomRate.value);
         if (!isNaN(customRate) && customRate > 0) {
@@ -1671,7 +1169,7 @@ if (elements.inputCustomRate) {
             debouncedCustomRate();
         }
     });
-    
+
     elements.inputCustomRate.addEventListener('change', () => {
         const customRate = parseFloat(elements.inputCustomRate.value);
         if (!isNaN(customRate) && customRate > 0) {
@@ -1679,7 +1177,7 @@ if (elements.inputCustomRate) {
         } else {
             state.customRate = null;
         }
-        calculateAndRenderCourier();
+        calculateAndRender();
     });
 }
 
@@ -1687,7 +1185,7 @@ if (elements.inputCustomWeightRule) {
     elements.inputCustomWeightRule.value = state.customWeightRule;
     elements.inputCustomWeightRule.addEventListener('change', (e) => {
         state.customWeightRule = e.target.value;
-        calculateAndRenderCourier();
+        calculateAndRender();
     });
 }
 
@@ -1783,4 +1281,3 @@ if (elements.emailSend) {
         }, 100);
     });
 }
-
